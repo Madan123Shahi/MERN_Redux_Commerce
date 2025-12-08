@@ -1,10 +1,27 @@
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import RefreshToken from "../models/RefreshToken.Model.js";
 import User from "../models/User.Model.js";
 import OTP from "../models/Otp.Model.js";
-import { generateOTP } from "../utils/generateOTP.js";
+
+import {
+  generateRefreshToken,
+  generateToken,
+  hashToken,
+} from "../utils/tokens.js";
+import { generateOTP, hashOTP, compareOTP } from "../utils/generateOTP.js";
 import { sendEmail } from "../config/mailer.js";
 import { sendSms } from "../config/sms.js";
+
+/* ======================================
+   CONSTANTS
+====================================== */
+const OTP_EXPIRY_MS = 5 * 60 * 1000;
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict",
+  path: "/api/auth/refresh",
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+};
 
 /* ======================================
    REGISTER → SEND OTP
@@ -19,63 +36,53 @@ export const register = async (req, res) => {
   }
 
   try {
-    const target = email || phone;
+    const target = email?.toLowerCase() || phone;
     const purpose = email ? "verify-email" : "verify-phone";
 
-    // check existing user
-    const existingUser = await User.findOne(email ? { email } : { phone });
+    const existingUser = await User.findOne(
+      email ? { email: target } : { phone: target }
+    );
+
     if (existingUser) {
       return res.status(409).json({ message: "User already exists" });
     }
 
     const otp = generateOTP();
-    const otpHash = await bcrypt.hash(otp, 10);
+    const otpHash = await hashOTP(otp);
 
-    // delete old OTPs
+    // clear previous OTPs
     await OTP.deleteMany({ target, purpose });
 
-    // store OTP
     await OTP.create({
       target,
       purpose,
       otpHash,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
     });
 
-    // send OTP
     if (email) {
       await sendEmail({
-        to: email, // ✅ REQUIRED
+        to: target,
         subject: "Your Registration OTP",
         text: `Your OTP is ${otp}. It expires in 5 minutes.`,
-        html: `
-          <div style="font-family: Arial">
-            <h2>OTP Verification</h2>
-            <p>Your OTP is:</p>
-            <h1>${otp}</h1>
-            <p>Expires in 5 minutes.</p>
-          </div>
-        `,
+        html: `<h1>${otp}</h1>`,
       });
     } else {
       await sendSms({
-        to: phone,
+        to: target,
         body: `Your OTP is ${otp}. Valid for 5 minutes.`,
       });
     }
 
-    // IMPORTANT: client must resend password in verify step
-    return res.status(200).json({
-      message: "OTP sent successfully",
-    });
-  } catch (error) {
-    console.error(error);
+    return res.status(200).json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("Register error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
 /* ======================================
-   VERIFY OTP → CREATE USER
+   VERIFY OTP → CREATE USER + TOKENS
 ====================================== */
 export const verifyOTP = async (req, res) => {
   const { email, phone, otp, password } = req.body;
@@ -85,7 +92,7 @@ export const verifyOTP = async (req, res) => {
   }
 
   try {
-    const target = email || phone;
+    const target = email?.toLowerCase() || phone;
     const purpose = email ? "verify-email" : "verify-phone";
 
     const record = await OTP.findOne({ target, purpose });
@@ -93,41 +100,257 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "OTP not found" });
     }
 
-    if (record.expiresAt < Date.now()) {
+    if (record.expiresAt < new Date()) {
+      await OTP.deleteOne({ _id: record._id });
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    const validOtp = await bcrypt.compare(otp, record.otpHash);
-    if (!validOtp) {
+    if (record.attempts >= 5) {
+      await OTP.deleteOne({ _id: record._id });
+      return res.status(429).json({
+        message: "Too many OTP attempts. Please request a new OTP.",
+      });
+    }
+
+    const isValid = await compareOTP(otp, record.otpHash);
+    if (!isValid) {
       record.attempts += 1;
       await record.save();
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // create user
+    // ✅ Create verified user
     const user = await User.create({
-      email,
-      phone,
-      password, // hashed via pre-save hook
+      email: email ? target : undefined,
+      phone: phone ? target : undefined,
+      password,
       isVerified: true,
     });
 
     await OTP.deleteOne({ _id: record._id });
 
-    // auth
-    const token = jwt.sign({ sub: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
+    // ✅ Generate tokens
+    const accessToken = generateToken(user._id);
+    const refresh = generateRefreshToken();
+
+    await RefreshToken.create({
+      user: user._id,
+      tokenHash: refresh.tokenHash,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refresh.expiresAt,
     });
 
+    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
     req.session.userId = user._id;
 
     return res.status(201).json({
       message: "Registration successful",
-      token,
+      accessToken,
       user,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error("Verify OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ======================================
+   REFRESH TOKEN ROTATION
+====================================== */
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Refresh token missing" });
+    }
+
+    const tokenHash = hashToken(refreshToken);
+
+    const storedToken = await RefreshToken.findOne({ tokenHash });
+    if (!storedToken || storedToken.revoked) {
+      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+
+    // ✅ Rotate token
+    const newRefresh = generateRefreshToken();
+
+    storedToken.revoked = true;
+    storedToken.replacedByToken = newRefresh.tokenHash;
+    await storedToken.save();
+
+    await RefreshToken.create({
+      user: storedToken.user,
+      tokenHash: newRefresh.tokenHash,
+      expiresAt: newRefresh.expiresAt,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    const newAccessToken = generateToken(storedToken.user);
+    res.cookie("refreshToken", newRefresh.token, REFRESH_COOKIE_OPTIONS);
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error("Refresh error:", err);
+    return res.status(500).json({ message: "Failed to refresh token" });
+  }
+};
+
+export const sendLoginOTP = async (req, res) => {
+  const { email, phone } = req.body;
+
+  if (!email && !phone) {
+    return res.status(400).json({ message: "Email or phone required" });
+  }
+
+  try {
+    const target = email?.toLowerCase() || phone;
+    const purpose = "login";
+
+    const user = await User.findOne(
+      email ? { email: target } : { phone: target }
+    );
+
+    if (!user || !user.isVerified) {
+      return res
+        .status(404)
+        .json({ message: "User not found or not verified" });
+    }
+
+    const otp = generateOTP();
+    const otpHash = await hashOTP(otp);
+
+    await OTP.deleteMany({ target, purpose });
+
+    await OTP.create({
+      target,
+      purpose,
+      otpHash,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    if (email) {
+      await sendEmail({
+        to: target,
+        subject: "Login OTP",
+        text: `Your login OTP is ${otp}. Valid for 5 minutes.`,
+      });
+    } else {
+      await sendSms({
+        to: target,
+        body: `Your login OTP is ${otp}. Valid for 5 minutes.`,
+      });
+    }
+
+    return res.json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("Send login OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const verifyLoginOTP = async (req, res) => {
+  const { email, phone, otp } = req.body;
+
+  if ((!email && !phone) || !otp) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  try {
+    const target = email?.toLowerCase() || phone;
+    const purpose = "login";
+
+    const record = await OTP.findOne({ target, purpose });
+    if (!record) {
+      return res.status(400).json({ message: "OTP not found" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await OTP.deleteOne({ _id: record._id });
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    if (record.attempts >= 5) {
+      await OTP.deleteOne({ _id: record._id });
+      return res.status(429).json({ message: "Too many attempts" });
+    }
+
+    const isValid = await compareOTP(otp, record.otpHash);
+    if (!isValid) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    const user = await User.findOne(
+      email ? { email: target } : { phone: target }
+    );
+
+    await OTP.deleteOne({ _id: record._id });
+
+    const accessToken = generateToken(user._id);
+    const refresh = generateRefreshToken();
+
+    await RefreshToken.create({
+      user: user._id,
+      tokenHash: refresh.tokenHash,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refresh.expiresAt,
+    });
+
+    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
+    req.session.userId = user._id;
+
+    return res.json({
+      message: "Login successful",
+      accessToken,
+      user,
+    });
+  } catch (err) {
+    console.error("Verify login OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      const tokenHash = hashToken(refreshToken);
+
+      await RefreshToken.findOneAndUpdate({ tokenHash }, { revoked: true });
+    }
+
+    req.session.destroy(() => {});
+    res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+
+    return res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const logoutAllDevices = async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+
+    await RefreshToken.updateMany({ user: userId }, { revoked: true });
+
+    req.session.destroy(() => {});
+    res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+
+    return res.json({ message: "Logged out from all devices" });
+  } catch (err) {
+    console.error("Logout all devices error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

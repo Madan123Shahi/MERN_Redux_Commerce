@@ -13,7 +13,7 @@ export const registerSchema = yup
     phone: yup
       .string()
       .trim()
-      .matches(/^[6-9]\d{9}$/, "Invalid Indian phone number")
+      .matches(/^(?:\+91)?[6-9]\d{9}$/, "Invalid Indian phone number")
       .test(
         "no-repeated-digits",
         "Phone number looks invalid",

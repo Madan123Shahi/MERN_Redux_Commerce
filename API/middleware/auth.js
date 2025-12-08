@@ -14,7 +14,7 @@ export const userAuth = async (req, res, next) => {
   }
 
   const parts = authHeader.split(" ");
-  if (parts[0] !== "Bearer" || parts[1]) {
+  if (parts[0] !== "Bearer" || !parts[1]) {
     return res.status(401).json({ message: "Invalid Authorization Format" });
   }
   const token = parts[1];
@@ -24,7 +24,8 @@ export const userAuth = async (req, res, next) => {
     const user = await User.findById(payload.sub).select("+password");
     if (!user) return res.status(401).json({ message: "Invalid Token" });
     req.user = user;
+    next();
   } catch (error) {
-    res.status(201).json({ message: error.message });
+    res.status(401).json({ message: error.message });
   }
 };

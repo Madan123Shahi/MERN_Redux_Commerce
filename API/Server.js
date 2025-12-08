@@ -1,15 +1,26 @@
-import { config } from "dotenv";
-config();
 import express from "express";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import cors from "cors";
 import { connectDB } from "./config/connectDB.js";
 import authRoute from "./routes/User.Route.js";
+import { env } from "./config/env.js";
+import { limiter } from "./middleware/rateLimiter.js";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
+// app.set("trust proxy", 1);
+
+app.use(helmet());
+
+app.use(
+  cors({
+    origin: env.CLIENT_URL,
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -17,28 +28,33 @@ app.use(cookieParser());
 app.use(
   session({
     name: "sid", // cookie name
-    secret: process.env.SESSION_SECRET,
+    secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false, // ✅ important
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
+      mongoUrl: env.MONGO_URI,
       collectionName: "sessions",
       ttl: 7 * 24 * 60 * 60, // 7 days
     }),
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   })
 );
 
+/* ✅ Global rate limiter (all routes) */
+app.use(limiter);
+
 app.use("/api/auth", authRoute);
+
+const PORT = env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    await connectDB();
+    await connectDB(env.MONGO_URI);
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

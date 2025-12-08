@@ -17,7 +17,7 @@ export const generateRefreshToken = () => {
   };
 };
 
-export const hashToken = crypto
-  .createHash("sha256")
-  .update(token)
-  .digest("hex");
+// required while generating the referesh token
+export const hashToken = (token) => {
+  crypto.createHash("sha256").update(token).digest("hex");
+};

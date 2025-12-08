@@ -1,10 +1,10 @@
 // smsService.js
-
 import Twilio from "twilio";
+import { env } from "../config/env.js";
 
-const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const FROM_NUMBER = process.env.TWILIO_FROM;
+const ACCOUNT_SID = env.TWILIO_ACCOUNT_SID;
+const AUTH_TOKEN = env.TWILIO_AUTH_TOKEN;
+const FROM_NUMBER = env.TWILIO_FROM;
 
 // Create client only if keys exist (important for production)
 let client = null;

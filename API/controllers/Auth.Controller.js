@@ -173,6 +173,22 @@ export const refreshAccessToken = async (req, res) => {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
+    /* =============================
+   ✅ DEVICE / SESSION BINDING
+============================= */
+    const sameUserAgent = storedToken.userAgent === req.get("user-agent");
+
+    // ❌ BLOCK if UA changes (strong signal)
+    if (!sameUserAgent) {
+      storedToken.revoked = true;
+      await storedToken.save();
+
+      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+
+      return res.status(401).json({
+        message: "Suspicious token use detected. Please login again.",
+      });
+    }
     if (storedToken.expiresAt < new Date()) {
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
       return res.status(401).json({ message: "Refresh token expired" });
@@ -212,7 +228,7 @@ export const sendLoginOTP = async (req, res) => {
 
   try {
     const target = email?.toLowerCase() || phone;
-    const purpose = "login";
+    const purpose = "login-otp";
 
     const user = await User.findOne(
       email ? { email: target } : { phone: target }
@@ -265,7 +281,7 @@ export const verifyLoginOTP = async (req, res) => {
 
   try {
     const target = email?.toLowerCase() || phone;
-    const purpose = "login";
+    const purpose = "login-otp";
 
     const record = await OTP.findOne({ target, purpose });
     if (!record) {

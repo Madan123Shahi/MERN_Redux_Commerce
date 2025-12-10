@@ -1,7 +1,7 @@
 // middleware/rateLimiter.js
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
-import redis from "../redis.js";
+import redis from "../config/redis.js";
 
 export const limiter = rateLimit({
   store: new RedisStore({

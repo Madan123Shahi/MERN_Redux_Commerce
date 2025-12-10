@@ -13,13 +13,22 @@ export const registerSchema = yup
     phone: yup
       .string()
       .trim()
-      .matches(/^(?:\+91)?[6-9]\d{9}$/, "Invalid Indian phone number")
+      .matches(/^[6-9]\d{9}$/, "Invalid Indian phone number")
       .test(
         "no-repeated-digits",
         "Phone number looks invalid",
         (value) => !value || !/(.)\1{6,}/.test(value)
       )
       .optional(),
+
+    country: yup
+      .string()
+      .length(2, "Invalid country code")
+      .uppercase()
+      .when("phone", {
+        is: (phone) => !!phone,
+        then: (schema) => schema.required("Country is required"),
+      }),
 
     password: yup
       .string()

@@ -1,7 +1,6 @@
 import RefreshToken from "../models/RefreshToken.Model.js";
 import User from "../models/User.Model.js";
 import OTP from "../models/Otp.Model.js";
-
 import {
   generateRefreshToken,
   generateToken,
@@ -10,6 +9,7 @@ import {
 import { generateOTP, hashOTP, compareOTP } from "../utils/generateOTP.js";
 import { sendEmail } from "../config/mailer.js";
 import { sendSms } from "../config/sms.js";
+import { normalizePhone } from "../utils/phone.js";
 
 /* ======================================
    CONSTANTS
@@ -23,11 +23,8 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
 
-/* ======================================
-   REGISTER → SEND OTP
-====================================== */
 export const register = async (req, res) => {
-  const { email, phone, password } = req.body;
+  const { email, phone, country, password } = req.body;
 
   if ((!email && !phone) || !password) {
     return res
@@ -35,8 +32,22 @@ export const register = async (req, res) => {
       .json({ message: "Email or phone and password required" });
   }
 
+  console.log(email);
   try {
-    const target = email?.toLowerCase() || phone;
+    let target;
+
+    if (phone) {
+      if (!country) {
+        return res
+          .status(400)
+          .json({ message: "Country code required for phone" });
+      }
+
+      target = normalizePhone(phone, country).e164; // ✅ normalized
+    } else {
+      target = email.toLowerCase();
+    }
+
     const purpose = email ? "verify-email" : "verify-phone";
 
     const existingUser = await User.findOne(
@@ -50,7 +61,6 @@ export const register = async (req, res) => {
     const otp = generateOTP();
     const otpHash = await hashOTP(otp);
 
-    // clear previous OTPs
     await OTP.deleteMany({ target, purpose });
 
     await OTP.create({
@@ -61,23 +71,14 @@ export const register = async (req, res) => {
     });
 
     if (email) {
-      await sendEmail({
-        to: target,
-        subject: "Your Registration OTP",
-        text: `Your OTP is ${otp}. It expires in 5 minutes.`,
-        html: `<h1>${otp}</h1>`,
-      });
+      await sendEmail({ to: target, subject: "OTP", text: otp });
     } else {
-      await sendSms({
-        to: target,
-        body: `Your OTP is ${otp}. Valid for 5 minutes.`,
-      });
+      await sendSms({ to: target, body: `OTP: ${otp}` });
     }
 
-    return res.status(200).json({ message: "OTP sent successfully" });
+    res.status(200).json({ message: "OTP sent" });
   } catch (err) {
-    console.error("Register error:", err);
-    return res.status(500).json({ message: "Server error" });
+    res.status(400).json({ message: err.message });
   }
 };
 
@@ -85,14 +86,16 @@ export const register = async (req, res) => {
    VERIFY OTP → CREATE USER + TOKENS
 ====================================== */
 export const verifyOTP = async (req, res) => {
-  const { email, phone, otp, password } = req.body;
+  const { email, phone, otp, password, country } = req.body;
 
   if ((!email && !phone) || !otp || !password) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   try {
-    const target = email?.toLowerCase() || phone;
+    const target = phone
+      ? normalizePhone(phone, country).e164
+      : email.toLowerCase();
     const purpose = email ? "verify-email" : "verify-phone";
 
     const record = await OTP.findOne({ target, purpose });

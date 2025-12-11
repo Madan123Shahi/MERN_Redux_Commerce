@@ -373,3 +373,41 @@ export const logoutAllDevices = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+export const loginAdmin = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+
+  const user = await User.findOne({ email }).select("+password");
+  if (!user) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  const isMatch = await user.comparePassword(password);
+  if (!isMatch) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  const accessToken = generateToken(user._id);
+  const refresh = generateRefreshToken();
+
+  await RefreshToken.create({
+    user: user._id,
+    tokenHash: refresh.tokenHash,
+    ip: req.ip,
+    userAgent: req.get("user-agent"),
+    expiresAt: refresh.expiresAt,
+  });
+
+  res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
+  req.session.userId = user._id;
+
+  return res.json({
+    message: "Login successful",
+    accessToken,
+    user,
+  });
+};

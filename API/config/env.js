@@ -13,7 +13,7 @@ export const env = cleanEnv(process.env, {
   JWT_SECRET: str(),
   SESSION_SECRET: str(),
 
-  CLIENT_URL: url({ default: "http://localhost:3000" }),
+  CLIENT_URL: url({ default: "http://localhost:5173/" }),
 
   SMTP_HOST: str({ default: "" }),
   SMTP_PORT: port({ default: 587 }),

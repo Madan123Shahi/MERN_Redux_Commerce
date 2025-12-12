@@ -377,37 +377,81 @@ export const logoutAllDevices = async (req, res) => {
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required" });
+  try {
+    // 2. Check if admin exists
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 3. Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 4. Generate tokens
+    const accessToken = generateToken(user._id);
+    const refresh = generateRefreshToken();
+
+    // 5. Save refresh token in DB
+    await RefreshToken.create({
+      user: user._id,
+      tokenHash: refresh.tokenHash,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refresh.expiresAt,
+    });
+
+    // 6. Store refresh token in cookie
+    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
+
+    // 7. Create session
+    req.session.userId = user._id;
+
+    // 8. Send success response
+    return res.json({
+      message: "Login successful",
+      accessToken,
+      user: {
+        _id: user._id,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
+};
 
-  const user = await User.findOne({ email }).select("+password");
-  if (!user) {
-    return res.status(401).json({ message: "Invalid credentials" });
+export const registerAdmin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const admin = await User.findOne({ email });
+    if (admin) return res.status(404).json({ message: "Admin Already Exists" });
+    const newAdmin = User.create({
+      email,
+      password,
+      role: "admin",
+    });
+
+    // 5️⃣ Return success response
+    return res.status(201).json({
+      message: "Admin registered successfully",
+      admin: {
+        id: newAdmin._id,
+        email: newAdmin.email,
+      },
+    });
+  } catch (error) {
+    // Yup validation errors
+    if (error.errors) {
+      return res.status(400).json({ message: error.errors });
+    }
+
+    // Server error
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
   }
-
-  const isMatch = await user.comparePassword(password);
-  if (!isMatch) {
-    return res.status(401).json({ message: "Invalid credentials" });
-  }
-
-  const accessToken = generateToken(user._id);
-  const refresh = generateRefreshToken();
-
-  await RefreshToken.create({
-    user: user._id,
-    tokenHash: refresh.tokenHash,
-    ip: req.ip,
-    userAgent: req.get("user-agent"),
-    expiresAt: refresh.expiresAt,
-  });
-
-  res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
-  req.session.userId = user._id;
-
-  return res.json({
-    message: "Login successful",
-    accessToken,
-    user,
-  });
 };

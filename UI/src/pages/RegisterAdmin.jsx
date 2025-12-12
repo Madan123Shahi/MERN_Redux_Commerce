@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginAdmin, resetAuthState } from "../app/features/authSlice";
+import { registerAdmin, resetAuthState } from "../app/features/authSlice";
 import { useNavigate } from "react-router-dom";
 
-export const LoginPage = () => {
+export const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -12,25 +12,25 @@ export const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Navigate on successful login
+  // Redirect after successful registration
   useEffect(() => {
     if (success) {
       setTimeout(() => {
         dispatch(resetAuthState());
-        navigate("/dashboard"); // change if needed
+        navigate("/");
       }, 800);
     }
   }, [success, dispatch, navigate]);
 
-  const handleLogin = (e) => {
+  const handleRegister = (e) => {
     e.preventDefault();
-    dispatch(loginAdmin({ email, password }));
+    dispatch(registerAdmin({ email, password }));
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">Admin Login</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Create Account</h2>
 
         {error && (
           <p className="bg-red-100 text-red-700 p-2 rounded mb-4">{error}</p>
@@ -38,11 +38,11 @@ export const LoginPage = () => {
 
         {success && (
           <p className="bg-green-100 text-green-700 p-2 rounded mb-4">
-            Login successful! Redirecting...
+            Account created! Redirecting...
           </p>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleRegister} className="space-y-4">
           <input
             type="email"
             placeholder="Email"
@@ -68,17 +68,17 @@ export const LoginPage = () => {
               loading ? "bg-gray-500" : "bg-blue-600"
             }`}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </form>
 
         <p className="text-center mt-4">
-          Don't have an account?{" "}
+          Already have an account?{" "}
           <button
-            onClick={() => navigate("/register")}
+            onClick={() => navigate("/")}
             className="text-blue-600 underline"
           >
-            Create Account
+            Login
           </button>
         </p>
       </div>

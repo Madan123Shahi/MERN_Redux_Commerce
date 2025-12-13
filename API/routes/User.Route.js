@@ -14,11 +14,18 @@ import {
   loginAdmin,
   registerAdmin,
 } from "../controllers/Auth.Controller.js";
+import { protect } from "../middleware/auth.js";
+import { adminOnly } from "../middleware/role.middleware.js";
 
 router.post("/register", validate(registerSchema), register);
 router.post("/verify", verifyOTP);
 router.post("/refresh", refreshAccessToken);
-router.post("/loginAdmin", validate(loginAdminSchema), loginAdmin);
+router.post(
+  "/loginAdmin",
+  validate(loginAdminSchema),
+  protect(adminOnly),
+  loginAdmin
+);
 router.post("/registerAdmin", validate(registerAdminSchema), registerAdmin);
 
 export default router;

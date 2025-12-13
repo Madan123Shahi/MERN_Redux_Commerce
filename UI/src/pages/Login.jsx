@@ -12,18 +12,17 @@ export const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Navigate on successful login
+  // Redirect on login success
   useEffect(() => {
     if (success) {
-      setTimeout(() => {
-        dispatch(resetAuthState());
-        navigate("/dashboard"); // change if needed
-      }, 800);
+      navigate("/dashboard");
+      dispatch(resetAuthState());
     }
   }, [success, dispatch, navigate]);
 
   const handleLogin = (e) => {
     e.preventDefault();
+    dispatch(resetAuthState());
     dispatch(loginAdmin({ email, password }));
   };
 

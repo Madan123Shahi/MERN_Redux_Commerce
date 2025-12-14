@@ -416,6 +416,7 @@ export const loginAdmin = async (req, res) => {
       user: {
         _id: user._id,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {

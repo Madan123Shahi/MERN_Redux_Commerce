@@ -41,6 +41,18 @@ export const loginAdmin = createAsyncThunk(
   }
 );
 
+export const protectAdmin = createAsyncThunk(
+  "auth/me",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/auth/me");
+      return res.data; // { user }
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || "Unauthorized");
+    }
+  }
+);
+
 /* ------------------------------------------
    SLICE
 ------------------------------------------ */
@@ -101,6 +113,18 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.success = false;
+      })
+      .addCase(protectAdmin.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(protectAdmin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+      })
+      .addCase(protectAdmin.rejected, (state) => {
+        state.loading = false;
+        state.user = null;
+        state.accessToken = null;
       });
   },
 });

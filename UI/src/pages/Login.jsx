@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginAdmin, resetAuthState } from "../app/features/authSlice";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { loading, error, success } = useSelector((state) => state.auth);
+
+  const routeError = location.state?.error;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +23,13 @@ export const LoginPage = () => {
     }
   }, [success, dispatch, navigate]);
 
+  useEffect(() => {
+    // Clear route state on refresh / direct visit
+    if (location.state?.error) {
+      navigate(location.pathname, { replace: true });
+    }
+  }, []);
+
   const handleLogin = (e) => {
     e.preventDefault();
     dispatch(resetAuthState());
@@ -31,10 +41,19 @@ export const LoginPage = () => {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6 text-center">Admin Login</h2>
 
+        {/* 🚫 Error from protected route */}
+        {routeError && (
+          <p className="bg-red-100 text-red-700 p-2 rounded mb-4">
+            {routeError}
+          </p>
+        )}
+
+        {/* ❌ API error */}
         {error && (
           <p className="bg-red-100 text-red-700 p-2 rounded mb-4">{error}</p>
         )}
 
+        {/* ✅ Success */}
         {success && (
           <p className="bg-green-100 text-green-700 p-2 rounded mb-4">
             Login successful! Redirecting...
@@ -44,11 +63,12 @@ export const LoginPage = () => {
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
-            placeholder="Email"
-            className="w-full border p-2 rounded"
+            placeholder="Enter Email"
+            className="w-full border-2 border-blue-500 p-2 rounded"
             disabled={loading}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
 
           <input
@@ -58,6 +78,7 @@ export const LoginPage = () => {
             disabled={loading}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
 
           <button

@@ -14,7 +14,7 @@ import { normalizePhone } from "../utils/phone.js";
 /* ======================================
    CONSTANTS
 ====================================== */
-const OTP_EXPIRY_MS = 5 * 60 * 1000;
+const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -23,46 +23,37 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
 
+/* ======================================
+   REGISTER → SEND OTP
+====================================== */
 export const register = async (req, res) => {
   const { email, phone, country, password } = req.body;
-
   if ((!email && !phone) || !password) {
     return res
       .status(400)
       .json({ message: "Email or phone and password required" });
   }
 
-  console.log(email);
   try {
     let target;
-
     if (phone) {
-      if (!country) {
+      if (!country)
         return res
           .status(400)
           .json({ message: "Country code required for phone" });
-      }
-
-      target = normalizePhone(phone, country).e164; // ✅ normalized
-    } else {
-      target = email.toLowerCase();
-    }
+      target = normalizePhone(phone, country).e164;
+    } else target = email.toLowerCase();
 
     const purpose = email ? "verify-email" : "verify-phone";
-
     const existingUser = await User.findOne(
       email ? { email: target } : { phone: target }
     );
-
-    if (existingUser) {
+    if (existingUser)
       return res.status(409).json({ message: "User already exists" });
-    }
 
     const otp = generateOTP();
     const otpHash = await hashOTP(otp);
-
     await OTP.deleteMany({ target, purpose });
-
     await OTP.create({
       target,
       purpose,
@@ -70,15 +61,12 @@ export const register = async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
     });
 
-    if (email) {
-      await sendEmail({ to: target, subject: "OTP", text: otp });
-    } else {
-      await sendSms({ to: target, body: `OTP: ${otp}` });
-    }
+    if (email) await sendEmail({ to: target, subject: "OTP", text: otp });
+    else await sendSms({ to: target, body: `OTP: ${otp}` });
 
     res.status(200).json({ message: "OTP sent" });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -87,7 +75,6 @@ export const register = async (req, res) => {
 ====================================== */
 export const verifyOTP = async (req, res) => {
   const { email, phone, otp, password, country } = req.body;
-
   if ((!email && !phone) || !otp || !password) {
     return res.status(400).json({ message: "Missing required fields" });
   }
@@ -99,20 +86,16 @@ export const verifyOTP = async (req, res) => {
     const purpose = email ? "verify-email" : "verify-phone";
 
     const record = await OTP.findOne({ target, purpose });
-    if (!record) {
-      return res.status(400).json({ message: "OTP not found" });
-    }
-
+    if (!record) return res.status(400).json({ message: "OTP not found" });
     if (record.expiresAt < new Date()) {
       await OTP.deleteOne({ _id: record._id });
       return res.status(400).json({ message: "OTP expired" });
     }
-
     if (record.attempts >= 5) {
       await OTP.deleteOne({ _id: record._id });
-      return res.status(429).json({
-        message: "Too many OTP attempts. Please request a new OTP.",
-      });
+      return res
+        .status(429)
+        .json({ message: "Too many OTP attempts. Request a new OTP." });
     }
 
     const isValid = await compareOTP(otp, record.otpHash);
@@ -122,7 +105,6 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // ✅ Create verified user
     const user = await User.create({
       email: email ? target : undefined,
       phone: phone ? target : undefined,
@@ -132,7 +114,7 @@ export const verifyOTP = async (req, res) => {
 
     await OTP.deleteOne({ _id: record._id });
 
-    // ✅ Generate tokens
+    // Generate tokens
     const accessToken = generateToken(user._id);
     const refresh = generateRefreshToken();
 
@@ -147,11 +129,9 @@ export const verifyOTP = async (req, res) => {
     res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
     req.session.userId = user._id;
 
-    return res.status(201).json({
-      message: "Registration successful",
-      accessToken,
-      user,
-    });
+    return res
+      .status(201)
+      .json({ message: "Registration successful", accessToken, user });
   } catch (err) {
     console.error("Verify OTP error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -159,57 +139,43 @@ export const verifyOTP = async (req, res) => {
 };
 
 /* ======================================
-   REFRESH TOKEN ROTATION
+   REFRESH TOKEN ROTATION (DELETE OLD TOKEN)
 ====================================== */
 export const refreshAccessToken = async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken) {
+    if (!refreshToken)
       return res.status(401).json({ message: "Refresh token missing" });
-    }
 
     const tokenHash = hashToken(refreshToken);
-
     const storedToken = await RefreshToken.findOne({ tokenHash });
     if (!storedToken || storedToken.revoked) {
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
-    /* =============================
-   ✅ DEVICE / SESSION BINDING
-============================= */
-    const sameUserAgent = storedToken.userAgent === req.get("user-agent");
-
-    // ❌ BLOCK if UA changes (strong signal)
-    if (!sameUserAgent) {
+    // Device/session binding
+    if (storedToken.userAgent !== req.get("user-agent")) {
       storedToken.revoked = true;
       await storedToken.save();
-
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
-
-      return res.status(401).json({
-        message: "Suspicious token use detected. Please login again.",
-      });
+      return res.status(401).json({ message: "Suspicious token use detected" });
     }
+
     if (storedToken.expiresAt < new Date()) {
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
       return res.status(401).json({ message: "Refresh token expired" });
     }
 
-    // ✅ Rotate token
+    // Delete old token & generate new one
+    await RefreshToken.deleteOne({ _id: storedToken._id });
     const newRefresh = generateRefreshToken();
-
-    storedToken.revoked = true;
-    storedToken.replacedByToken = newRefresh.tokenHash;
-    await storedToken.save();
-
     await RefreshToken.create({
       user: storedToken.user,
       tokenHash: newRefresh.tokenHash,
-      expiresAt: newRefresh.expiresAt,
       ip: req.ip,
       userAgent: req.get("user-agent"),
+      expiresAt: newRefresh.expiresAt,
     });
 
     const newAccessToken = generateToken(storedToken.user);
@@ -222,97 +188,24 @@ export const refreshAccessToken = async (req, res) => {
   }
 };
 
-export const sendLoginOTP = async (req, res) => {
-  const { email, phone } = req.body;
-
-  if (!email && !phone) {
-    return res.status(400).json({ message: "Email or phone required" });
-  }
-
+/* ======================================
+   LOGIN ADMIN (WITH TOKEN ROTATION)
+====================================== */
+export const loginAdmin = async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const target = email?.toLowerCase() || phone;
-    const purpose = "login-otp";
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) return res.status(401).json({ message: "Invalid Credentials" });
 
-    const user = await User.findOne(
-      email ? { email: target } : { phone: target }
-    );
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch)
+      return res.status(401).json({ message: "Invalid Credentials" });
 
-    if (!user || !user.isVerified) {
-      return res
-        .status(404)
-        .json({ message: "User not found or not verified" });
-    }
-
-    const otp = generateOTP();
-    const otpHash = await hashOTP(otp);
-
-    await OTP.deleteMany({ target, purpose });
-
-    await OTP.create({
-      target,
-      purpose,
-      otpHash,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    // Delete any old refresh tokens for this user/device
+    await RefreshToken.deleteMany({
+      user: user._id,
+      userAgent: req.get("user-agent"),
     });
-
-    if (email) {
-      await sendEmail({
-        to: target,
-        subject: "Login OTP",
-        text: `Your login OTP is ${otp}. Valid for 5 minutes.`,
-      });
-    } else {
-      await sendSms({
-        to: target,
-        body: `Your login OTP is ${otp}. Valid for 5 minutes.`,
-      });
-    }
-
-    return res.json({ message: "OTP sent successfully" });
-  } catch (err) {
-    console.error("Send login OTP error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const verifyLoginOTP = async (req, res) => {
-  const { email, phone, otp } = req.body;
-
-  if ((!email && !phone) || !otp) {
-    return res.status(400).json({ message: "Missing required fields" });
-  }
-
-  try {
-    const target = email?.toLowerCase() || phone;
-    const purpose = "login-otp";
-
-    const record = await OTP.findOne({ target, purpose });
-    if (!record) {
-      return res.status(400).json({ message: "OTP not found" });
-    }
-
-    if (record.expiresAt < new Date()) {
-      await OTP.deleteOne({ _id: record._id });
-      return res.status(400).json({ message: "OTP expired" });
-    }
-
-    if (record.attempts >= 5) {
-      await OTP.deleteOne({ _id: record._id });
-      return res.status(429).json({ message: "Too many attempts" });
-    }
-
-    const isValid = await compareOTP(otp, record.otpHash);
-    if (!isValid) {
-      record.attempts += 1;
-      await record.save();
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    const user = await User.findOne(
-      email ? { email: target } : { phone: target }
-    );
-
-    await OTP.deleteOne({ _id: record._id });
 
     const accessToken = generateToken(user._id);
     const refresh = generateRefreshToken();
@@ -331,21 +224,23 @@ export const verifyLoginOTP = async (req, res) => {
     return res.json({
       message: "Login successful",
       accessToken,
-      user,
+      user: { _id: user._id, email: user.email, role: user.role },
     });
   } catch (err) {
-    console.error("Verify login OTP error:", err);
+    console.error("Login error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
+/* ======================================
+   LOGOUT
+====================================== */
 export const logout = async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
     if (refreshToken) {
       const tokenHash = hashToken(refreshToken);
-
-      await RefreshToken.findOneAndUpdate({ tokenHash }, { revoked: true });
+      await RefreshToken.findOneAndDelete({ tokenHash });
     }
 
     req.session.destroy(() => {});
@@ -358,12 +253,13 @@ export const logout = async (req, res) => {
   }
 };
 
+/* ======================================
+   LOGOUT ALL DEVICES
+====================================== */
 export const logoutAllDevices = async (req, res) => {
   try {
     const userId = req.user.id; // from auth middleware
-
-    await RefreshToken.updateMany({ user: userId }, { revoked: true });
-
+    await RefreshToken.deleteMany({ user: userId });
     req.session.destroy(() => {});
     res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
 
@@ -374,85 +270,23 @@ export const logoutAllDevices = async (req, res) => {
   }
 };
 
-export const loginAdmin = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // 2. Check if admin exists
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // 3. Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // 4. Generate tokens
-    const accessToken = generateToken(user._id);
-    const refresh = generateRefreshToken();
-
-    // 5. Save refresh token in DB
-    await RefreshToken.create({
-      user: user._id,
-      tokenHash: refresh.tokenHash,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-      expiresAt: refresh.expiresAt,
-    });
-
-    // 6. Store refresh token in cookie
-    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
-
-    // 7. Create session
-    req.session.userId = user._id;
-
-    // 8. Send success response
-    return res.json({
-      message: "Login successful",
-      accessToken,
-      user: {
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Login Error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
+/* ======================================
+   REGISTER ADMIN
+====================================== */
 export const registerAdmin = async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    const admin = await User.findOne({ email });
-    if (admin) return res.status(404).json({ message: "Admin Already Exists" });
-    const newAdmin = User.create({
-      email,
-      password,
-      role: "admin",
-    });
+    const adminExists = await User.findOne({ email });
+    if (adminExists)
+      return res.status(409).json({ message: "Admin already exists" });
 
-    // 5️⃣ Return success response
+    const newAdmin = await User.create({ email, password, role: "admin" });
     return res.status(201).json({
       message: "Admin registered successfully",
-      admin: {
-        id: newAdmin._id,
-        email: newAdmin.email,
-      },
+      admin: { id: newAdmin._id, email: newAdmin.email },
     });
-  } catch (error) {
-    // Yup validation errors
-    if (error.errors) {
-      return res.status(400).json({ message: error.errors });
-    }
-
-    // Server error
-    console.error(error);
-    return res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    console.error("Register admin error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };

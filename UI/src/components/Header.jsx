@@ -1,147 +1,61 @@
-import { useState } from "react";
-import { Menu, X, ShoppingCart, Search, User, ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
+import { Search, ShoppingCart, User, Menu, ChevronDown } from "lucide-react";
 
-export function Header() {
-  const [open, setOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-
+export const Header = () => {
   return (
-    <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="text-2xl font-bold tracking-wide cursor-pointer">
-          Shop<span className="text-blue-600">Ease</span>
-        </div>
-
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6 text-lg relative">
-          <a href="/" className="hover:text-blue-600 transition">
-            Home
-          </a>
-
-          {/* Categories Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setCategoryOpen(!categoryOpen)}
-              className="flex items-center gap-1 hover:text-blue-600 transition"
-            >
-              Categories <ChevronDown size={18} />
-            </button>
-
-            <AnimatePresence>
-              {categoryOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-8 left-0 bg-white shadow-lg rounded-lg p-4 flex flex-col gap-3 w-40"
-                >
-                  <a href="/category/men" className="hover:text-blue-600">
-                    Men
-                  </a>
-                  <a href="/category/women" className="hover:text-blue-600">
-                    Women
-                  </a>
-                  <a
-                    href="/category/electronics"
-                    className="hover:text-blue-600"
-                  >
-                    Electronics
-                  </a>
-                  <a href="/category/home" className="hover:text-blue-600">
-                    Home
-                  </a>
-                </motion.div>
-              )}
-            </AnimatePresence>
+    <header className="w-full border-b bg-white">
+      {/* Top Bar */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-green-400 flex items-center justify-center text-white font-bold">
+            P
           </div>
+          <span className="text-xl font-bold text-gray-800">PioMart</span>
+        </Link>
 
-          <a href="/deals" className="hover:text-blue-600 transition">
-            Deals
-          </a>
-          <a href="/contact" className="hover:text-blue-600 transition">
-            Contact
-          </a>
+        {/* Navigation */}
+        <nav className="hidden lg:flex items-center gap-6 text-gray-600 font-medium">
+          <button className="flex items-center gap-1 text-green-600 font-semibold">
+            <Menu size={18} />
+            Browse Categories <ChevronDown size={16} />
+          </button>
+          <Link to="/deals" className="hover:text-green-600">
+            Super Deals
+          </Link>
+
+          <Link to="/offers" className="text-orange-500 font-semibold">
+            🔥 Special Offer
+          </Link>
         </nav>
 
-        {/* Search Bar */}
-        <div className="hidden md:flex items-center bg-gray-100 rounded-full px-3 py-2 w-72">
-          <Search className="text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="bg-transparent w-full outline-none ml-2"
-          />
-        </div>
+        {/* Right Actions */}
+        <div className="flex items-center gap-4">
+          {/* Search */}
+          <button className="p-2 rounded-full hover:bg-green-50 text-gray-600">
+            <Search size={20} />
+          </button>
 
-        {/* Right Icons */}
-        <div className="hidden md:flex items-center gap-5">
-          <ShoppingCart className="cursor-pointer hover:text-blue-600" />
-          <User className="cursor-pointer hover:text-blue-600" />
-        </div>
+          {/* Cart */}
+          <button className="relative p-2 rounded-full hover:bg-green-50 text-gray-600">
+            <ShoppingCart size={20} />
+            <span className="absolute -top-1 -right-1 h-5 w-5 text-xs bg-green-400 text-gray-900 rounded-full flex items-center justify-center">
+              0
+            </span>
+          </button>
 
-        {/* Mobile Button */}
-        <button className="md:hidden" onClick={() => setOpen(!open)}>
-          {open ? <X size={28} /> : <Menu size={28} />}
-        </button>
-      </div>
-
-      {/* Mobile Nav */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="md:hidden bg-white shadow-md border-t p-4 flex flex-col gap-4 text-lg"
+          {/* Auth */}
+          <Link
+            to="/login"
+            className="flex items-center gap-2 px-3 py-2 rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition"
           >
-            <a href="/" className="hover:text-blue-600">
-              Home
-            </a>
-
-            {/* Mobile Categories */}
-            <details className="cursor-pointer">
-              <summary className="flex items-center gap-1">Categories</summary>
-              <div className="flex flex-col gap-2 ml-4 mt-2">
-                <a href="/category/men" className="hover:text-blue-600">
-                  Men
-                </a>
-                <a href="/category/women" className="hover:text-blue-600">
-                  Women
-                </a>
-                <a href="/category/electronics" className="hover:text-blue-600">
-                  Electronics
-                </a>
-                <a href="/category/home" className="hover:text-blue-600">
-                  Home
-                </a>
-              </div>
-            </details>
-
-            <a href="/deals" className="hover:text-blue-600">
-              Deals
-            </a>
-            <a href="/contact" className="hover:text-blue-600">
-              Contact
-            </a>
-
-            {/* Mobile Search */}
-            <div className="flex items-center bg-gray-100 rounded-full px-3 py-2 w-full">
-              <Search className="text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="bg-transparent w-full outline-none ml-2"
-              />
-            </div>
-
-            <div className="flex items-center gap-5 mt-2 border-t pt-4">
-              <ShoppingCart className="cursor-pointer hover:text-blue-600" />
-              <User className="cursor-pointer hover:text-blue-600" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <User size={18} />
+            <span className="hidden sm:block text-sm font-medium">
+              Login / Sign Up
+            </span>
+          </Link>
+        </div>
+      </div>
     </header>
   );
-}
+};

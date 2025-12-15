@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginAdmin, resetAuthState } from "../app/features/authSlice";
 import { useNavigate, useLocation } from "react-router-dom";
-import { loginAdminSchema } from "../validators/User.js";
+import { loginAdminSchema } from "../validators/Admin.js";
 
 export const LoginPage = () => {
   const dispatch = useDispatch();
@@ -91,10 +91,12 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        <h2 className="text-3xl font-bold text-gray-800 text-center">Login</h2>
+        <h2 className="text-3xl font-bold text-gray-800 text-center">
+          Admin Login
+        </h2>
 
         <p className="text-sm text-gray-500 text-center mt-1">
-          Sign in to manage your profile
+          Sign in to manage your dashboard
         </p>
 
         <div className="w-14 h-1 bg-green-400 rounded-full mx-auto my-5"></div>

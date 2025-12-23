@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { Search, ShoppingCart, User, Menu, ChevronDown } from "lucide-react";
+import { Search, ShoppingCart, User, ChevronDown } from "lucide-react";
 
 export const Header = () => {
   return (
-    <header className="w-full border-b bg-white">
+    <header className="w-full border-b border-b-green-200">
       {/* Top Bar */}
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
         {/* Logo */}
@@ -17,15 +17,17 @@ export const Header = () => {
         {/* Navigation */}
         <nav className="hidden lg:flex items-center gap-6 text-gray-600 font-medium">
           <button className="flex items-center gap-1 text-green-600 font-semibold">
-            <Menu size={18} />
             Browse Categories <ChevronDown size={16} />
           </button>
-          <Link to="/deals" className="hover:text-green-600">
-            Super Deals
+          <Link to="/men" className="hover:text-green-600">
+            Men
           </Link>
 
-          <Link to="/offers" className="text-orange-500 font-semibold">
-            🔥 Special Offer
+          <Link to="/women" className="text-orange-500 font-semibold">
+            Women
+          </Link>
+          <Link to="/kids" className="text-orange-500 font-semibold">
+            Kids
           </Link>
         </nav>
 

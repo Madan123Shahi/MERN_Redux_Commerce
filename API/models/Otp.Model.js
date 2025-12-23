@@ -20,6 +20,10 @@ const otpSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    lastSentAt: {
+      type: String,
+      required: true,
+    },
   },
 
   { timestamps: true }

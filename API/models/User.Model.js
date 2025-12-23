@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       sparse: true,
+      unique: true,
     },
     password: {
       type: String,
@@ -24,6 +25,12 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Brute Force protection
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: Date,
     role: {
       type: String,
       enum: ["admin", "user"],

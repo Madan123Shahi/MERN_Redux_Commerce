@@ -1,6 +1,4 @@
 import express from "express";
-import session from "express-session";
-import MongoStore from "connect-mongo";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import cors from "cors";
@@ -29,26 +27,6 @@ console.log("USING CORS ORIGIN:", JSON.stringify(env.CLIENT_URL));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
-app.use(
-  session({
-    name: "sid", // cookie name
-    secret: env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false, // ✅ important
-    store: MongoStore.create({
-      mongoUrl: env.MONGO_URI,
-      collectionName: "sessions",
-      ttl: 7 * 24 * 60 * 60, // 7 days
-    }),
-    cookie: {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
-  })
-);
 
 /* ✅ Global rate limiter (all routes) */
 app.use(limiter);

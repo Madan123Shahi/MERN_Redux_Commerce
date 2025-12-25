@@ -221,49 +221,6 @@ export const refreshAccessToken = async (req, res) => {
 };
 
 /* ======================================
-   LOGIN ADMIN (WITH TOKEN ROTATION)
-====================================== */
-export const loginAdmin = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return res.status(401).json({ message: "Invalid Credentials" });
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch)
-      return res.status(401).json({ message: "Invalid Credentials" });
-
-    // Delete any old refresh tokens for this user/device
-    await RefreshToken.deleteMany({
-      user: user._id,
-      userAgent: req.get("user-agent"),
-    });
-
-    const accessToken = generateToken(user._id);
-    const refresh = generateRefreshToken();
-
-    await RefreshToken.create({
-      user: user._id,
-      tokenHash: refresh.tokenHash,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-      expiresAt: refresh.expiresAt,
-    });
-
-    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
-
-    return res.json({
-      message: "Login successful",
-      accessToken,
-      user: { _id: user._id, email: user.email, role: user.role },
-    });
-  } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-/* ======================================
    LOGOUT
 ====================================== */
 export const logout = async (req, res) => {
@@ -295,27 +252,6 @@ export const logoutAllDevices = async (req, res) => {
     return res.json({ message: "Logged out from all devices" });
   } catch (err) {
     console.error("Logout all devices error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-/* ======================================
-   REGISTER ADMIN
-====================================== */
-export const registerAdmin = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const adminExists = await User.findOne({ email });
-    if (adminExists)
-      return res.status(409).json({ message: "Admin already exists" });
-
-    const newAdmin = await User.create({ email, password, role: "admin" });
-    return res.status(201).json({
-      message: "Admin registered successfully",
-      admin: { id: newAdmin._id, email: newAdmin.email },
-    });
-  } catch (err) {
-    console.error("Register admin error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -565,5 +501,56 @@ export const resetPassword = async (req, res) => {
   } catch (err) {
     console.error("Reset password error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET CURRENT USER (ME)
+// =========================== */
+export const getMe = async (req, res) => {
+  try {
+    // req.user is attached by protect middleware
+    const user = await User.findById(req.user._id).select("-password");
+    res.status(200).json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const loginAdmin = async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ message: `All fields are required` });
+  try {
+    const admin = await User.findOne({ email }).select("+password");
+    if (!admin) res.status(400).json({ message: "Admin Not Found" });
+    const isMatch = await admin.comparePassword(password);
+    if (!isMatch) res.status(400).json({ message: "Password Doesn't match" });
+    const token = generateToken(admin._id);
+    res.cookie("admin_token", token, {
+      httpOnly: true,
+      sameSite: "Strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    res.status(200).json({ admin: { email: admin.email, name: admin.name } });
+  } catch (error) {
+    console.error("Server Error", error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const logoutAdmin = async (req, res) => {
+  try {
+    // Clear the JWT cookie
+    res.clearCookie("admin_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to log out" });
   }
 };

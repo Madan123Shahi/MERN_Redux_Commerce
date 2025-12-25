@@ -17,13 +17,14 @@ import {
   verifyOTP,
   refreshAccessToken,
   loginAdmin,
-  registerAdmin,
   login,
   changePassword,
   forgotPassword,
   resetPassword,
   logout,
   logoutAllDevices,
+  getMe,
+  logoutAdmin,
 } from "../controllers/Auth.Controller.js";
 
 import {
@@ -33,6 +34,7 @@ import {
 } from "../middleware/rateLimiter.js";
 
 import { protect } from "../middleware/auth.js"; // JWT auth middleware
+import { adminOnly } from "../middleware/role.middleware.js";
 
 /* ======================================
    AUTH ROUTES
@@ -44,10 +46,12 @@ router.post("/verify", otpVerifyLimiter, verifyOTP);
 
 // Login
 router.post("/login", loginLimiter, validate(loginSchema), login);
-router.post("/loginAdmin", validate(loginAdminSchema), loginAdmin);
-
-// Admin registration
-router.post("/registerAdmin", validate(registerAdminSchema), registerAdmin);
+router.post(
+  "/loginAdmin",
+  loginLimiter,
+  validate(loginAdminSchema),
+  loginAdmin
+);
 
 // Token refresh
 router.post("/refresh", refreshAccessToken);
@@ -76,5 +80,7 @@ router.post(
 
 router.post("/logout", protect, logout);
 router.post("/logout-all", protect, logoutAllDevices);
+router.get("/me", protect, getMe);
+router.post("/logoutAdmin", logoutAdmin);
 
 export default router;

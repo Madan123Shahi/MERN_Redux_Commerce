@@ -1,134 +1,108 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { api } from "../../api/axios.js";
+import api from "../../api/axios";
 
 const initialState = {
   user: null,
-  accessToken: null,
   loading: false,
   error: null,
-  success: false, // added for redirect after register/login
+  success: false,
+  isAuthenticated: false,
+  authChecked: false, // to check if /me was called
 };
 
-/* ------------------------------------------
-   REGISTER ADMIN
------------------------------------------- */
-export const registerAdmin = createAsyncThunk(
-  "auth/registerAdmin",
-  async ({ email, password }, { rejectWithValue }) => {
-    try {
-      const res = await api.post("/auth/registerAdmin", { email, password });
-      return res.data; // expected => { user, accessToken }
-    } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.message || "Registration failed"
-      );
-    }
-  }
-);
-
-/* ------------------------------------------
-   LOGIN ADMIN
------------------------------------------- */
+// Login admin
 export const loginAdmin = createAsyncThunk(
   "auth/loginAdmin",
-  async ({ email, password }, { rejectWithValue }) => {
+  async (form, { rejectWithValue }) => {
     try {
-      const res = await api.post("/auth/loginAdmin", { email, password });
-      return res.data; // expected => { user, accessToken }
+      const { data } = await api.post("/auth/loginAdmin", form);
+      return data.admin;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Login failed");
+      return rejectWithValue(err.response?.data?.message || err.message);
     }
   }
 );
 
+// Protect admin
 export const protectAdmin = createAsyncThunk(
-  "auth/me",
+  "auth/protectAdmin",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get("/auth/me");
-      return res.data; // { user }
+      const { data } = await api.get("/auth/me");
+      return data.user;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Unauthorized");
+      return rejectWithValue(null);
     }
   }
 );
 
-/* ------------------------------------------
-   SLICE
------------------------------------------- */
+export const logoutAdmin = createAsyncThunk(
+  "auth/logoutAdmin",
+  async (_, { rejectWithValue }) => {
+    try {
+      await api.post("/auth/logoutAdmin", {}, { withCredentials: true });
+      return true;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    logout(state) {
-      state.user = null;
-      state.accessToken = null;
-      state.success = false;
-      state.error = null;
-    },
     resetAuthState(state) {
       state.error = null;
       state.success = false;
       state.loading = false;
     },
+    logout(state) {
+      state.user = null;
+      state.isAuthenticated = false;
+    },
   },
-
   extraReducers: (builder) => {
     builder
-      /* ========================
-          REGISTER ADMIN
-      ========================== */
-      .addCase(registerAdmin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-      })
-      .addCase(registerAdmin.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.success = true; // used for redirect
-      })
-      .addCase(registerAdmin.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.success = false;
-      })
-
-      /* ========================
-          LOGIN ADMIN
-      ========================== */
+      // loginAdmin
       .addCase(loginAdmin.pending, (state) => {
         state.loading = true;
         state.error = null;
-        state.success = false;
       })
       .addCase(loginAdmin.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
         state.success = true;
+        state.user = action.payload;
+        state.isAuthenticated = true;
       })
       .addCase(loginAdmin.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        state.success = false;
       })
+      // protectAdmin
       .addCase(protectAdmin.pending, (state) => {
         state.loading = true;
+        state.authChecked = false;
       })
       .addCase(protectAdmin.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.isAuthenticated = true;
         state.loading = false;
-        state.user = action.payload.user;
+        state.authChecked = true;
       })
       .addCase(protectAdmin.rejected, (state) => {
-        state.loading = false;
         state.user = null;
-        state.accessToken = null;
+        state.isAuthenticated = false;
+        state.loading = false;
+        state.authChecked = true;
+      })
+      .addCase(logoutAdmin.fulfilled, (state) => {
+        state.isAuthenticated = false;
+        state.admin = null;
+        state.authChecked = true;
       });
   },
 });
 
-export const { logout, resetAuthState } = authSlice.actions;
-
+export const { resetAuthState, logout } = authSlice.actions;
 export default authSlice.reducer;

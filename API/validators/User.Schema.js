@@ -1,46 +1,34 @@
 import * as yup from "yup";
 
+const strongPassword = yup
+  .string()
+  .required("Password is required")
+  .min(8, "Password must be at least 8 characters")
+  .matches(/[A-Z]/, "Must contain at least one uppercase letter")
+  .matches(/[a-z]/, "Must contain at least one lowercase letter")
+  .matches(/\d/, "Must contain at least one number")
+  .matches(/[@$!%*?&]/, "Must contain at least one special character");
+
 export const registerSchema = yup
   .object({
-    email: yup
-      .string()
-      .trim()
-      .lowercase()
-      .email("Invalid email format")
-      .matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email structure")
-      .optional(),
-
+    email: yup.string().trim().lowercase().email("Invalid email").nullable(),
     phone: yup
       .string()
       .trim()
       .matches(/^[6-9]\d{9}$/, "Invalid Indian phone number")
-      .test(
-        "no-repeated-digits",
-        "Phone number looks invalid",
-        (value) => !value || !/(.)\1{6,}/.test(value)
-      )
-      .optional(),
-
-    country: yup
-      .string()
-      .length(2, "Invalid country code")
-      .uppercase()
-      .when("phone", {
-        is: (phone) => !!phone,
-        then: (schema) => schema.required("Country is required"),
-      }),
-
-    password: yup
-      .string()
-      .required("Password is required")
-      .min(8, "Password must be at least 8 characters")
-      .matches(/[A-Z]/, "Must contain at least one uppercase letter")
-      .matches(/[a-z]/, "Must contain at least one lowercase letter")
-      .matches(/\d/, "Must contain at least one number")
-      .matches(/[@$!%*?&]/, "Must contain at least one special character"),
+      .nullable(),
+    country: yup.string().length(2).uppercase().nullable(),
+    password: strongPassword,
   })
-  .test("email-or-phone", "Either email or phone is required", (value) =>
-    Boolean(value.email || value.phone)
+  .test(
+    "email-or-phone",
+    "Either email or phone is required",
+    (v) => !!(v.email || v.phone)
+  )
+  .test(
+    "country-required-for-phone",
+    "Country is required when using phone",
+    (v) => !v.phone || !!v.country
   );
 
 export const loginAdminSchema = yup.object({
@@ -85,27 +73,23 @@ export const registerAdminSchema = yup.object({
 /* ======================================
    LOGIN SCHEMA (EMAIL OR PHONE)
 ====================================== */
-export const loginSchema = yup.object({
-  email: yup
-    .string()
-    .email("Invalid email")
-    .when("phone", {
-      is: (val) => !val || val.length === 0,
-      then: yup.string().required("Email or phone is required"),
-      otherwise: yup.string().notRequired(),
-    }),
-  phone: yup.string().when("email", {
-    is: (val) => !val || val.length === 0,
-    then: yup.string().required("Phone or email is required"),
-    otherwise: yup.string().notRequired(),
-  }),
-  country: yup.string().when("phone", {
-    is: (val) => val && val.length > 0,
-    then: yup.string().required("Country code is required for phone login"),
-    otherwise: yup.string().notRequired(),
-  }),
-  password: yup.string().required("Password is required"),
-});
+export const loginSchema = yup
+  .object({
+    email: yup.string().email("Invalid email").nullable(),
+    phone: yup.string().nullable(),
+    country: yup.string().nullable(),
+    password: yup.string().required("Password is required"),
+  })
+  .test(
+    "email-or-phone",
+    "Email or phone is required",
+    (v) => !!(v.email || v.phone)
+  )
+  .test(
+    "country-required-for-phone",
+    "Country code is required for phone login",
+    (v) => !v.phone || !!v.country
+  );
 
 /* ======================================
    CHANGE PASSWORD SCHEMA (LOGGED-IN USER)
@@ -125,45 +109,45 @@ export const changePasswordSchema = yup.object({
 /* ======================================
    FORGOT PASSWORD SCHEMA
 ====================================== */
-export const forgotPasswordSchema = yup.object({
-  email: yup.string().email("Invalid email").required("Email is required"),
-  phone: yup.string().notRequired(),
-  country: yup.string().when("phone", {
-    is: (val) => val && val.length > 0,
-    then: yup.string().required("Country code required when using phone"),
-    otherwise: yup.string().notRequired(),
-  }),
-});
+export const forgotPasswordSchema = yup
+  .object({
+    email: yup.string().email("Invalid email").nullable(),
+    phone: yup.string().nullable(),
+    country: yup.string().nullable(),
+  })
+  .test(
+    "email-or-phone",
+    "Email or phone is required",
+    (v) => !!(v.email || v.phone)
+  )
+  .test(
+    "country-required-for-phone",
+    "Country is required when using phone",
+    (v) => !v.phone || !!v.country
+  );
 
 /* ======================================
    RESET PASSWORD SCHEMA (AFTER OTP)
 ====================================== */
-export const resetPasswordSchema = yup.object({
-  email: yup
-    .string()
-    .email("Invalid email")
-    .when("phone", {
-      is: (val) => !val || val.length === 0,
-      then: yup.string().required("Email or phone is required"),
-      otherwise: yup.string().notRequired(),
-    }),
-  phone: yup.string().when("email", {
-    is: (val) => !val || val.length === 0,
-    then: yup.string().required("Phone or email is required"),
-    otherwise: yup.string().notRequired(),
-  }),
-  country: yup.string().when("phone", {
-    is: (val) => val && val.length > 0,
-    then: yup.string().required("Country code is required for phone"),
-    otherwise: yup.string().notRequired(),
-  }),
-  otp: yup.string().required("OTP is required"),
-  newPassword: yup
-    .string()
-    .required("New password is required")
-    .min(6, "Password must be at least 6 characters"),
-  confirmNewPassword: yup
-    .string()
-    .oneOf([yup.ref("newPassword"), null], "Passwords must match")
-    .required("Confirm new password is required"),
-});
+export const resetPasswordSchema = yup
+  .object({
+    email: yup.string().email("Invalid email").nullable(),
+    phone: yup.string().nullable(),
+    country: yup.string().nullable(),
+    otp: yup.string().required("OTP is required"),
+    newPassword: yup.string().min(6).required("New password is required"),
+    confirmNewPassword: yup
+      .string()
+      .oneOf([yup.ref("newPassword")], "Passwords must match")
+      .required("Confirm new password is required"),
+  })
+  .test(
+    "email-or-phone",
+    "Email or phone is required",
+    (v) => !!(v.email || v.phone)
+  )
+  .test(
+    "country-required-for-phone",
+    "Country is required for phone",
+    (v) => !v.phone || !!v.country
+  );

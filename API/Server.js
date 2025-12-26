@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import cors from "cors";
 import { connectDB } from "./config/connectDB.js";
+import { globalErrorHandler } from "./middleware/errorMiddleware.js";
 import authRoute from "./routes/User.Route.js";
 import categoryRoute from "./routes/category.route.js";
 import subCategoryRoute from "./routes/subCategory.route.js";
@@ -48,6 +49,8 @@ app.use("/api/auth", authRoute);
 app.use("/api/admin/categories", categoryRoute);
 app.use("/api/admin/subcategories", subCategoryRoute);
 app.use("/api/admin/products", productRoute);
+
+app.use(globalErrorHandler);
 
 const PORT = env.PORT || 5000;
 

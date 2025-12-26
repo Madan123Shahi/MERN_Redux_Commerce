@@ -12,9 +12,7 @@ import AdminRoute from "./routes/ProtectedRoute";
 
 const App = () => {
   const dispatch = useDispatch();
-  const { authChecked, isAuthenticated, loading } = useSelector(
-    (state) => state.auth
-  );
+  const { authChecked, isAuthenticated } = useSelector((state) => state.auth);
 
   // Check if admin is already logged in
   useEffect(() => {

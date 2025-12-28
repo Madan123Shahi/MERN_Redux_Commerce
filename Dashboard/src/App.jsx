@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { protectAdmin } from "./app/features/authSlice";
 
 import { LoginPage } from "./pages/Login";
 import DashboardLayout from "./pages/Dashboard";
@@ -9,6 +8,7 @@ import Category from "./pages/Category";
 import SubCategory from "./pages/SubCategory";
 import ProductPage from "./pages/Product";
 import AdminRoute from "./routes/ProtectedRoute";
+import { refreshAccessToken } from "./app/features/authSlice";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -16,7 +16,7 @@ const App = () => {
 
   // Check if admin is already logged in
   useEffect(() => {
-    dispatch(protectAdmin());
+    dispatch(refreshAccessToken());
   }, [dispatch]);
 
   // Show loader until auth check completes
@@ -43,7 +43,7 @@ const App = () => {
 
       {/* Protected Admin Routes */}
       <Route element={<AdminRoute />}>
-        <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route path="/Dashboard" element={<DashboardLayout />}>
           <Route path="categories" element={<Category />} />
           <Route path="subcategories" element={<SubCategory />} />
           <Route path="products" element={<ProductPage />} />

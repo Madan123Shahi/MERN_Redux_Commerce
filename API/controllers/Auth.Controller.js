@@ -18,6 +18,7 @@ const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000;
+
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -169,9 +170,11 @@ export const refreshAccessToken = async (req, res) => {
 
     const tokenHash = hashToken(refreshToken);
     const storedToken = await RefreshToken.findOne({ tokenHash });
+
+    // ❌ Token not found or already revoked
     if (!storedToken || storedToken.revoked) {
+      // Possible token reuse attack
       if (storedToken?.revoked) {
-        // Revoke all tokens if already revoked (possible token theft)
         await RefreshToken.updateMany(
           { user: storedToken.user },
           { revoked: true }
@@ -179,29 +182,26 @@ export const refreshAccessToken = async (req, res) => {
       }
 
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
-      return res.status(401).json({
-        message: storedToken?.revoked
-          ? "Session compromised. Please login again."
-          : "Invalid refresh token",
-      });
+      return res.status(401).json({ message: "Invalid refresh token" });
     }
 
-    // Device/session binding
-    if (storedToken.userAgent !== req.get("user-agent")) {
+    // ❌ Expired
+    if (storedToken.expiresAt < new Date()) {
       storedToken.revoked = true;
       await storedToken.save();
-      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
-      return res.status(401).json({ message: "Suspicious token use detected" });
-    }
-
-    if (storedToken.expiresAt < new Date()) {
       res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
       return res.status(401).json({ message: "Refresh token expired" });
     }
 
-    // Delete old token & generate new one
-    await RefreshToken.deleteOne({ _id: storedToken._id });
+    // ✅ Generate new tokens
+    const newAccessToken = generateToken(storedToken.user);
     const newRefresh = generateRefreshToken();
+
+    // 🔐 Rotate refresh token
+    storedToken.revoked = true;
+    storedToken.replacedByToken = newRefresh.tokenHash;
+    await storedToken.save();
+
     await RefreshToken.create({
       user: storedToken.user,
       tokenHash: newRefresh.tokenHash,
@@ -210,8 +210,13 @@ export const refreshAccessToken = async (req, res) => {
       expiresAt: newRefresh.expiresAt,
     });
 
-    const newAccessToken = generateToken(storedToken.user);
-    res.cookie("refreshToken", newRefresh.token, REFRESH_COOKIE_OPTIONS);
+    res.cookie("refreshToken", newRefresh.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/auth/refresh",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     return res.json({ accessToken: newAccessToken });
   } catch (err) {
@@ -521,21 +526,45 @@ export const loginAdmin = async (req, res) => {
   if (!email || !password)
     return res.status(400).json({ message: `All fields are required` });
   try {
-    const admin = await User.findOne({ email }).select("+password");
-    if (!admin) res.status(400).json({ message: "Admin Not Found" });
+    const admin = await User.findOne({ email, role: "admin" }).select(
+      "+password"
+    );
+    if (!admin) return res.status(401).json({ message: "Admin Not Found" });
     const isMatch = await admin.comparePassword(password);
-    if (!isMatch) res.status(400).json({ message: "Password Doesn't match" });
-    const token = generateToken(admin._id);
-    res.cookie("admin_token", token, {
-      httpOnly: true,
-      sameSite: "Strict",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    if (!isMatch)
+      return res.status(401).json({ message: "Password Doesn't match" });
+    const accessToken = generateToken(admin._id);
+    const refresh = generateRefreshToken();
+
+    await RefreshToken.create({
+      user: admin._id,
+      tokenHash: refresh.tokenHash,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refresh.expiresAt,
     });
-    res.status(200).json({ admin: { email: admin.email, name: admin.name } });
-  } catch (error) {
-    console.error("Server Error", error.message);
-    res.status(500).json({ error: error.message });
+
+    res.cookie("refreshToken", refresh.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth/refresh",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      message: "Admin login successful",
+      accessToken,
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+      },
+    });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

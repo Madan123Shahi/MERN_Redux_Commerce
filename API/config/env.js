@@ -11,7 +11,6 @@ export const env = cleanEnv(process.env, {
   REDIS_URL: url({ default: "" }), // ✅ ADD THIS
 
   JWT_SECRET: str(),
-  SESSION_SECRET: str(),
 
   CLIENT_URL: url({ default: "http://localhost:5173" }),
 

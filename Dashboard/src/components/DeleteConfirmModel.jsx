@@ -16,19 +16,18 @@ const DeleteConfirmModal = ({
 
         <div className="flex justify-end gap-3">
           <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-
-          <button
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white"
+            className="px-4 py-2 rounded bg-green-400 hover:bg-green-500 text-white"
           >
             {loading ? "Deleting..." : "Delete"}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-4 py-2 rounded border-2 border-green-400 bg-gray-200 hover:bg-gray-300 text-gray-600"
+          >
+            Cancel
           </button>
         </div>
       </div>

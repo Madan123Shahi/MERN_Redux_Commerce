@@ -13,10 +13,21 @@ export const createCategory = async (req, res) => {
   res.status(201).json(category);
 };
 
-/* READ */
 export const getCategories = async (req, res) => {
-  const categories = await Category.find().sort({ createdAt: -1 });
-  res.json(categories);
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 5;
+  const search = req.query.search || "";
+
+  const query = search ? { name: { $regex: search, $options: "i" } } : {};
+
+  const total = await Category.countDocuments(query);
+
+  const categories = await Category.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  res.json({ categories, total });
 };
 
 /* UPDATE */

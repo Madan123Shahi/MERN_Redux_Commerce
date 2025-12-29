@@ -21,9 +21,9 @@ const LOCK_TIME_MS = 15 * 60 * 1000;
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  path: "/api/auth/refresh",
+  secure: process.env.NODE_ENV === "production" ? true : false, // false in dev
+  sameSite: "lax",
+  path: "/", // must match login/logout
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
 
@@ -160,72 +160,6 @@ export const verifyOTP = async (req, res) => {
 };
 
 /* ======================================
-   REFRESH TOKEN ROTATION (DELETE OLD TOKEN)
-====================================== */
-export const refreshAccessToken = async (req, res) => {
-  try {
-    const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken)
-      return res.status(401).json({ message: "Refresh token missing" });
-
-    const tokenHash = hashToken(refreshToken);
-    const storedToken = await RefreshToken.findOne({ tokenHash });
-
-    // ❌ Token not found or already revoked
-    if (!storedToken || storedToken.revoked) {
-      // Possible token reuse attack
-      if (storedToken?.revoked) {
-        await RefreshToken.updateMany(
-          { user: storedToken.user },
-          { revoked: true }
-        );
-      }
-
-      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    // ❌ Expired
-    if (storedToken.expiresAt < new Date()) {
-      storedToken.revoked = true;
-      await storedToken.save();
-      res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
-      return res.status(401).json({ message: "Refresh token expired" });
-    }
-
-    // ✅ Generate new tokens
-    const newAccessToken = generateToken(storedToken.user);
-    const newRefresh = generateRefreshToken();
-
-    // 🔐 Rotate refresh token
-    storedToken.revoked = true;
-    storedToken.replacedByToken = newRefresh.tokenHash;
-    await storedToken.save();
-
-    await RefreshToken.create({
-      user: storedToken.user,
-      tokenHash: newRefresh.tokenHash,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-      expiresAt: newRefresh.expiresAt,
-    });
-
-    res.cookie("refreshToken", newRefresh.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/auth/refresh",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.json({ accessToken: newAccessToken });
-  } catch (err) {
-    console.error("Refresh error:", err);
-    return res.status(500).json({ message: "Failed to refresh token" });
-  }
-};
-
-/* ======================================
    LOGOUT
 ====================================== */
 export const logout = async (req, res) => {
@@ -236,7 +170,7 @@ export const logout = async (req, res) => {
       await RefreshToken.findOneAndDelete({ tokenHash });
     }
 
-    res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
 
     return res.json({ message: "Logged out successfully" });
   } catch (err) {
@@ -252,7 +186,7 @@ export const logoutAllDevices = async (req, res) => {
   try {
     const userId = req.user.id; // from auth middleware
     await RefreshToken.deleteMany({ user: userId });
-    res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
 
     return res.json({ message: "Logged out from all devices" });
   } catch (err) {
@@ -521,21 +455,35 @@ export const getMe = async (req, res) => {
   }
 };
 
+/* ======================================
+   ADMIN LOGIN
+====================================== */
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
-    return res.status(400).json({ message: `All fields are required` });
+    return res.status(400).json({ message: "All fields are required" });
+
   try {
     const admin = await User.findOne({ email, role: "admin" }).select(
       "+password"
     );
-    if (!admin) return res.status(401).json({ message: "Admin Not Found" });
+    if (!admin) return res.status(401).json({ message: "Admin not found" });
+
     const isMatch = await admin.comparePassword(password);
     if (!isMatch)
-      return res.status(401).json({ message: "Password Doesn't match" });
+      return res.status(401).json({ message: "Password doesn't match" });
+
+    // Revoke all previous refresh tokens
+    await RefreshToken.updateMany(
+      { user: admin._id, revoked: false },
+      { revoked: true }
+    );
+
+    // Generate tokens
     const accessToken = generateToken(admin._id);
     const refresh = generateRefreshToken();
 
+    // Save refresh token in DB
     await RefreshToken.create({
       user: admin._id,
       tokenHash: refresh.tokenHash,
@@ -544,13 +492,8 @@ export const loginAdmin = async (req, res) => {
       expiresAt: refresh.expiresAt,
     });
 
-    res.cookie("refreshToken", refresh.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/api/auth/refresh",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    // Set HttpOnly cookie
+    res.cookie("refreshToken", refresh.token, REFRESH_COOKIE_OPTIONS);
 
     return res.status(200).json({
       message: "Admin login successful",
@@ -568,18 +511,96 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+/* ======================================
+   LOGOUT ADMIN
+====================================== */
 export const logoutAdmin = async (req, res) => {
   try {
-    // Clear the JWT cookie
-    res.clearCookie("admin_token", {
+    const refreshToken = req.cookies?.refreshToken;
+    console.log(refreshToken);
+
+    if (refreshToken) {
+      const tokenHash = hashToken(refreshToken);
+      await RefreshToken.updateOne(
+        { tokenHash, revoked: false },
+        { revoked: true }
+      );
+      console.log("Token revoked in DB");
+    } else {
+      console.log("No refresh token received from client");
+    }
+
+    // Clear cookie
+    res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
     });
 
-    res.status(200).json({ message: "Logged out successfully" });
+    console.log("Cookie cleared");
+
+    return res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to log out" });
+    console.error("Logout error:", err);
+    return res.status(500).json({ message: "Failed to log out" });
+  }
+};
+
+/* ======================================
+   REFRESH ACCESS TOKEN
+====================================== */
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken)
+      return res.status(401).json({ message: "Refresh token missing" });
+
+    const tokenHash = hashToken(refreshToken);
+    const storedToken = await RefreshToken.findOne({ tokenHash });
+
+    if (!storedToken || storedToken.revoked) {
+      // possible reuse attack → revoke all tokens
+      if (storedToken?.revoked) {
+        await RefreshToken.updateMany(
+          { user: storedToken.user },
+          { revoked: true }
+        );
+      }
+
+      res.clearCookie("refreshToken", { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      storedToken.revoked = true;
+      await storedToken.save();
+      res.clearCookie("refreshToken", { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+
+    // Rotate tokens
+    const newAccessToken = generateToken(storedToken.user);
+    const newRefresh = generateRefreshToken();
+
+    storedToken.revoked = true;
+    storedToken.replacedByToken = newRefresh.tokenHash;
+    await storedToken.save();
+
+    await RefreshToken.create({
+      user: storedToken.user,
+      tokenHash: newRefresh.tokenHash,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: newRefresh.expiresAt,
+    });
+
+    res.cookie("refreshToken", newRefresh.token, REFRESH_COOKIE_OPTIONS);
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error("Refresh token error:", err);
+    return res.status(500).json({ message: "Failed to refresh token" });
   }
 };

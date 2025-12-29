@@ -78,7 +78,7 @@ router.post(
   resetPassword
 );
 
-router.post("/logout", protect, logout);
+router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAllDevices);
 router.get("/me", protect, getMe);
 router.post("/logoutAdmin", logoutAdmin);

@@ -2,12 +2,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios.js";
 
-// Fetch categories
 export const fetchCategories = createAsyncThunk(
   "category/getCategories",
-  async (_, { rejectWithValue }) => {
+  async ({ page, limit, search }, { rejectWithValue }) => {
     try {
-      const res = await api.get("/admin/categories");
+      const res = await api.get("/admin/categories", {
+        params: { page, limit, search },
+      });
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
@@ -45,6 +46,7 @@ const categorySlice = createSlice({
   name: "category",
   initialState: {
     categories: [],
+    total: 0,
     loading: false,
     error: null,
     success: false,
@@ -65,7 +67,8 @@ const categorySlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading = false;
-        state.categories = action.payload;
+        state.categories = action.payload.categories;
+        state.total = action.payload.total;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading = false;

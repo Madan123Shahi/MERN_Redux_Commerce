@@ -29,9 +29,6 @@ app.use(
   })
 );
 
-// // ✅ FIXED preflight handling
-// app.options("/*", cors());
-
 app.use(
   helmet({
     contentSecurityPolicy: false,

@@ -64,7 +64,7 @@ export const otpSendLimiter = rateLimit({
 ====================================== */
 export const loginLimiter = rateLimit({
   store: createRedisStore("rl:login"),
-  windowMs: 15 * 60 * 1000,
+  windowMs: 2 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,

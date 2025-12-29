@@ -52,7 +52,7 @@ export default function Category() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl mb-4">Categories</h1>
+      <h1 className="text-2xl mb-4 text-gray-600">Categories</h1>
 
       {error && <p className="text-red-600">{error}</p>}
 
@@ -63,7 +63,7 @@ export default function Category() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New category"
-          className="border p-2 rounded flex-1"
+          className="border-2 border-green-400 focus:outline-none focus:ring-2 focus:ring-green-300 p-2 rounded flex-1 hover:ring-2 hover:ring-green-300"
         />
         <button
           onClick={handleCreate}
@@ -80,13 +80,16 @@ export default function Category() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search categories"
-        className="border p-2 rounded mb-4 w-full"
+        className="border-2 border-green-400 focus:outline-none focus:ring-2 focus:ring-green-300 p-2 rounded mb-4 w-full hover:ring-2 hover:ring-green-300"
       />
 
       {/* Category list */}
       <ul className="space-y-2">
         {categories.map((c) => (
-          <li key={c._id} className="flex justify-between border p-2 rounded">
+          <li
+            key={c._id}
+            className="flex justify-between border-2 border-green-400 p-2 rounded items-center text-gray-500 hover:ring-2 hover:ring-green-300"
+          >
             <span>{c.name}</span>
             <button
               onClick={() => handleDeleteClick(c._id)}
@@ -103,15 +106,17 @@ export default function Category() {
         <button
           disabled={page <= 1}
           onClick={() => setPage((p) => p - 1)}
-          className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+          className="px-3 py-1  rounded disabled:opacity-80 bg-green-400 text-white"
         >
           Prev
         </button>
-        <span className="px-3 py-1">{page}</span>
+        <span className="px-4 py-1 rounded-full bg-green-500 text-white font-semibold shadow">
+          {page}
+        </span>
         <button
           disabled={page * limit >= total}
           onClick={() => setPage((p) => p + 1)}
-          className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+          className="px-3 py-1 text-white rounded disabled:opacity-50 bg-green-400"
         >
           Next
         </button>

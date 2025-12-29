@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { logoutAdmin } from "../app/features/authSlice";
+import { logoutAdmin, clearAuth } from "../app/features/authSlice";
 import LogoutConfirmModal from "../components/LogoutConfirmModel";
+import api from "../api/axios";
 
 const LogoutButton = () => {
   const dispatch = useDispatch();
@@ -10,8 +11,18 @@ const LogoutButton = () => {
   const [open, setOpen] = useState(false);
 
   const handleConfirmLogout = async () => {
-    await dispatch(logoutAdmin());
-    navigate("/login", { replace: true });
+    try {
+      await dispatch(logoutAdmin()).unwrap();
+      // 🔥 clear Authorization header
+      delete api.defaults.headers.common["Authorization"];
+
+      // 🔥 force-clear redux auth
+      dispatch(clearAuth());
+
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   };
 
   return (

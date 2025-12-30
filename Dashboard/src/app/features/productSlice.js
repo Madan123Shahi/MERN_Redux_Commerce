@@ -17,15 +17,21 @@ export const fetchProducts = createAsyncThunk(
   }
 );
 
-// Create product
 export const createProduct = createAsyncThunk(
-  "product/createProduct",
-  async (data, { rejectWithValue }) => {
+  "product/create",
+  async (formData, { rejectWithValue }) => {
     try {
-      const res = await api.post("/admin/products", data);
+      const res = await api.post("/admin/products", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
       return res.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to create product"
+      );
     }
   }
 );
@@ -57,12 +63,12 @@ export const deleteProduct = createAsyncThunk(
 );
 
 // Fetch categories
-export const fetchCategories = createAsyncThunk(
-  "product/fetchCategories",
+export const fetchAllCategories = createAsyncThunk(
+  "category/getAllCategories",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get("/admin/categories");
-      return res.data.categories;
+      const res = await api.get("/admin/categories", { params: { all: true } });
+      return res.data.categories; // return array directly
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
@@ -78,6 +84,18 @@ export const fetchSubCategories = createAsyncThunk(
       return res.data.subCategories;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+export const fetchSubCategoriesByCategory = createAsyncThunk(
+  "product/fetchSubCategoriesByCategory",
+  async (categoryId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`/admin/subcategories?category=${categoryId}`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err.response.data);
     }
   }
 );
@@ -164,14 +182,34 @@ const productSlice = createSlice({
         state.error = action.payload;
       })
 
-      // FETCH CATEGORIES
-      .addCase(fetchCategories.fulfilled, (state, action) => {
-        state.categories = action.payload;
+      // ================= GET ALL (FOR DROPDOWN) =================
+      .addCase(fetchAllCategories.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchAllCategories.fulfilled, (state, action) => {
+        state.loading = false;
+        state.categories = action.payload; // ← IMPORTANT
+      })
+      .addCase(fetchAllCategories.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // FETCH SUBCATEGORIES
       .addCase(fetchSubCategories.fulfilled, (state, action) => {
         state.subCategories = action.payload;
+      })
+      .addCase(fetchSubCategoriesByCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSubCategoriesByCategory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.subCategories = action.payload.subCategories; // ← extract array
+      })
+      .addCase(fetchSubCategoriesByCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

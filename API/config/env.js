@@ -23,4 +23,9 @@ export const env = cleanEnv(process.env, {
   TWILIO_ACCOUNT_SID: str({ default: "" }),
   TWILIO_AUTH_TOKEN: str({ default: "" }),
   TWILIO_FROM: str({ default: "" }),
+
+  // ✅ Cloudinary credentials
+  CLOUDINARY_CLOUD_NAME: str(),
+  CLOUDINARY_API_KEY: str(),
+  CLOUDINARY_API_SECRET: str(),
 });

@@ -4,7 +4,6 @@ const router = express.Router();
 import {
   registerSchema,
   loginAdminSchema,
-  registerAdminSchema,
   loginSchema, // for email/phone login
   changePasswordSchema,
   forgotPasswordSchema,

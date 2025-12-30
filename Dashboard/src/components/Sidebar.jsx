@@ -7,7 +7,7 @@ export default function Sidebar() {
     "text-gray-200 hover:bg-green-500 hover:text-white px-3 py-2 rounded";
 
   return (
-    <div className="w-64 h-screen bg-gray-900 text-white p-4 flex flex-col">
+    <div className="w-64 min-h-screen bg-gray-900 text-white p-4 flex flex-col">
       <h1 className="text-xl font-bold mb-6">Admin Dashboard</h1>
       <nav className="flex flex-col gap-2">
         <NavLink

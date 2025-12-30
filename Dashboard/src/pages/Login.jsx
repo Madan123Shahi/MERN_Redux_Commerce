@@ -143,8 +143,8 @@ export const LoginPage = () => {
             disabled={loading}
             className={`w-full font-semibold p-3 rounded-md transition-all ${
               loading
-                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                : "bg-green-400 hover:bg-green-500 text-gray-900"
+                ? "bg-green-400 text-white cursor-not-allowed"
+                : "bg-green-400 hover:bg-green-500 text-white"
             }`}
           >
             {loading ? "Logging in..." : "Login"}

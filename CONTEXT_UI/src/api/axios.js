@@ -1,36 +1,24 @@
+// src/api/axios.js
 import axios from "axios";
-import { getToken, setToken, clearToken } from "../services/tokenService.js";
+import store from "../app/store"; // <-- import redux store
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
-  withCredentials: true, // 🔥 REQUIRED for refresh token cookie
+  withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// 🔐 Attach access token automatically
+api.interceptors.request.use(
+  (config) => {
+    const token = store.getState().auth.accessToken;
 
-api.interceptors.response.use(
-  (res) => res,
-  async (err) => {
-    const original = err.config;
-
-    if (err.response?.status === 401 && !original._retry) {
-      original._retry = true;
-
-      try {
-        const res = await api.get("/auth/refresh");
-        setToken(res.data.accessToken);
-        return api(original);
-      } catch {
-        clearToken();
-        window.location.href = "/login";
-      }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return Promise.reject(err);
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
+
 export default api;

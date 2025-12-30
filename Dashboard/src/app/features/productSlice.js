@@ -62,7 +62,7 @@ export const fetchCategories = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await api.get("/admin/categories");
-      return res.data;
+      return res.data.categories;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
@@ -75,7 +75,7 @@ export const fetchSubCategories = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await api.get("/admin/subcategories");
-      return res.data;
+      return res.data.subCategories;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }

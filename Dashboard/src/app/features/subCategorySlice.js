@@ -1,40 +1,45 @@
-// src/app/features/subCategorySlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios.js";
 
-// Fetch subcategories
+// =========================
+// FETCH SUBCATEGORIES
+// =========================
 export const fetchSubCategories = createAsyncThunk(
   "subCategory/getSubCategories",
   async (_, { rejectWithValue }) => {
     try {
       const res = await api.get("/admin/subcategories");
-      return res.data;
+      return res.data; // keep full response
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
   }
 );
 
-// Create subcategory
+// =========================
+// CREATE SUBCATEGORY
+// =========================
 export const createSubCategory = createAsyncThunk(
   "subCategory/createSubCategory",
-  async (data, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const res = await api.post("/admin/subcategories", data);
-      return res.data;
+      const { data } = await api.post("/admin/subcategories", payload); // data is the created object
+      return data; // return object directly
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
   }
 );
 
-// Delete subcategory
+// =========================
+// DELETE SUBCATEGORY
+// =========================
 export const deleteSubCategory = createAsyncThunk(
   "subCategory/deleteSubCategory",
   async (id, { rejectWithValue }) => {
     try {
       await api.delete(`/admin/subcategories/${id}`);
-      return id;
+      return id; // return the deleted ID
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
@@ -65,7 +70,10 @@ const subCategorySlice = createSlice({
       })
       .addCase(fetchSubCategories.fulfilled, (state, action) => {
         state.loading = false;
-        state.subCategories = action.payload;
+        state.subCategories = action.payload.subCategories; // ✅ ARRAY
+        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.pages = action.payload.pages;
       })
       .addCase(fetchSubCategories.rejected, (state, action) => {
         state.loading = false;
@@ -79,7 +87,7 @@ const subCategorySlice = createSlice({
       })
       .addCase(createSubCategory.fulfilled, (state, action) => {
         state.loading = false;
-        state.subCategories.unshift(action.payload);
+        state.subCategories.unshift(action.payload); // directly the object
         state.success = true;
       })
       .addCase(createSubCategory.rejected, (state, action) => {

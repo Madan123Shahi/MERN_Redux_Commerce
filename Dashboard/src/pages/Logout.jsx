@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { logoutAdmin, clearAuth } from "../app/features/authSlice";
 import LogoutConfirmModal from "../components/LogoutConfirmModel";
 import api from "../api/axios";
@@ -13,10 +14,11 @@ const LogoutButton = () => {
   const handleConfirmLogout = async () => {
     try {
       await dispatch(logoutAdmin()).unwrap();
-      // 🔥 clear Authorization header
+
+      // clear Authorization header
       delete api.defaults.headers.common["Authorization"];
 
-      // 🔥 force-clear redux auth
+      // clear redux auth
       dispatch(clearAuth());
 
       navigate("/login", { replace: true });
@@ -29,8 +31,12 @@ const LogoutButton = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-4 right-6 bg-green-400 hover:bg-green-500 text-white px-4 py-2 rounded"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg 
+                   bg-red-500 hover:bg-red-600 text-white 
+                   font-semibold shadow-md transition 
+                   hover:-translate-y-0.5 "
       >
+        <LogOut size={18} />
         Logout
       </button>
 

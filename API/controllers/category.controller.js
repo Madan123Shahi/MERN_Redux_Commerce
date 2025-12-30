@@ -13,12 +13,32 @@ export const createCategory = async (req, res) => {
   res.status(201).json(category);
 };
 
+// export const getCategories = async (req, res) => {
+//   const page = Number(req.query.page) || 1;
+//   const limit = Number(req.query.limit) || 5;
+//   const search = req.query.search || "";
+
+//   const query = search ? { name: { $regex: search, $options: "i" } } : {};
+
+//   const total = await Category.countDocuments(query);
+
+//   const categories = await Category.find(query)
+//     .sort({ createdAt: -1 })
+//     .skip((page - 1) * limit)
+//     .limit(limit);
+
+//   res.json({ categories, total });
+// };
+
 export const getCategories = async (req, res) => {
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 5;
-  const search = req.query.search || "";
+  const { page = 1, limit = 5, search = "", all } = req.query;
 
   const query = search ? { name: { $regex: search, $options: "i" } } : {};
+
+  if (all === "true") {
+    const categories = await Category.find(query).sort({ createdAt: -1 });
+    return res.json({ categories, total: categories.length });
+  }
 
   const total = await Category.countDocuments(query);
 

@@ -1,11 +1,10 @@
-// src/app/store.js
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "../app/features/authSlice.js";
-import categoryReducer from "../app/features/categorySlice.js";
-import subCategoryReducer from "../app/features/subCategorySlice.js";
-import productReducer from "../app/features/productSlice.js";
+import authReducer from "./features/authSlice";
+import categoryReducer from "./features/categorySlice";
+import subCategoryReducer from "./features/subCategorySlice";
+import productReducer from "./features/productSlice";
 
-export const store = configureStore({
+const store = configureStore({
   reducer: {
     auth: authReducer,
     category: categoryReducer,
@@ -13,3 +12,5 @@ export const store = configureStore({
     product: productReducer,
   },
 });
+
+export default store;

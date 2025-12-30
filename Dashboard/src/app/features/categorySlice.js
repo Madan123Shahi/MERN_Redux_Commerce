@@ -16,6 +16,18 @@ export const fetchCategories = createAsyncThunk(
   }
 );
 
+export const fetchAllCategories = createAsyncThunk(
+  "category/getAllCategories",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/admin/categories", { params: { all: true } });
+      return res.data.categories; // return array directly
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
 // Create category
 export const createCategory = createAsyncThunk(
   "category/createCategory",
@@ -71,6 +83,19 @@ const categorySlice = createSlice({
         state.total = action.payload.total;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ================= GET ALL (FOR DROPDOWN) =================
+      .addCase(fetchAllCategories.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchAllCategories.fulfilled, (state, action) => {
+        state.loading = false;
+        state.categories = action.payload; // ← IMPORTANT
+      })
+      .addCase(fetchAllCategories.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

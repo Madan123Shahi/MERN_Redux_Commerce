@@ -7,8 +7,11 @@ import {
   fetchProducts,
   deleteProduct,
   updateProduct,
+  createProduct,
   fetchAllCategories,
+  fetchSubCategoriesByCategory,
 } from "../app/features/productSlice";
+import DeleteConfirmModal from "../components/DeleteConfirmModel";
 import ProductTable from "./ProductTable";
 
 /* ================= STYLES ================= */
@@ -17,7 +20,10 @@ const input =
   "bg-white text-green-900 placeholder-gray-400 " +
   "outline-none transition shadow-sm " +
   "focus:outline-none focus:ring-5 focus:ring-green-300 focus:border-green-600 " +
-  "hover:border-green-600";
+  "hover:border-green-600" +
+  "disabled:hover:border-green-500" +
+  " disabled:hover:ring-0" +
+  " disabled:text-gray-400";
 
 const selectStyles = {
   control: (base, state) => ({
@@ -38,9 +44,20 @@ const selectStyles = {
     },
   }),
   valueContainer: (base) => ({ ...base, padding: "0 1rem" }),
-  singleValue: (base) => ({ ...base, color: "#065f46" }),
-  input: (base) => ({ ...base, margin: 0, padding: 0, color: "#065f46" }),
-  placeholder: (base) => ({ ...base, color: "#9ca3af" }),
+  singleValue: (base, state) => ({
+    ...base,
+    color: state.isDisabled ? "#9ca3af" : "#065f46",
+  }),
+  input: (base, state) => ({
+    ...base,
+    margin: 0,
+    padding: 0,
+    color: "#065f46",
+  }),
+  placeholder: (base, state) => ({
+    ...base,
+    color: "#9ca3af",
+  }),
   dropdownIndicator: (base) => ({
     ...base,
     color: "#16a34a",
@@ -101,6 +118,8 @@ export default function ProductPage() {
   const limit = 10;
   const [editProduct, setEditProduct] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -149,6 +168,13 @@ export default function ProductPage() {
     dispatch(fetchAllCategories());
   }, [dispatch, page, search]);
 
+  /* ================= HANDLE PAGE RESET ================= */
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [totalPages, page]);
+
   /* ================= FILTER + SORT ================= */
   const filteredProducts = useMemo(() => {
     let data = [...products];
@@ -159,8 +185,6 @@ export default function ProductPage() {
     if (sort === "stock") data.sort((a, b) => b.stock - a.stock);
     return data;
   }, [products, categoryFilter, sort]);
-
-  const totalPages = Math.ceil(total / limit);
 
   const toggleStatus = (p) => {
     dispatch(
@@ -176,12 +200,25 @@ export default function ProductPage() {
     label: c.name,
   }));
 
+  const openDeleteModal = (id) => setDeleteId(id);
+  const closeDeleteModal = () => setDeleteId(null);
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    setDeleteLoading(true);
+    const res = await dispatch(deleteProduct(deleteId));
+    if (deleteProduct.fulfilled.match(res)) {
+      dispatch(fetchProducts({ page, limit, search }));
+      closeDeleteModal();
+    }
+    setDeleteLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-3xl font-bold mb-6">📦 Products</h1>
-
       {/* SEARCH + FILTER */}
-      <div className="bg-white p-4 rounded-xl shadow mb-6 grid md:grid-cols-4 gap-4">
+      <div className="bg-white  p-4 rounded-xl shadow mb-6 grid md:grid-cols-4 gap-6">
         <input
           placeholder="Search product..."
           value={search}
@@ -189,75 +226,105 @@ export default function ProductPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className={input}
+          // className={input}
+          className={`${input} ${
+            products.length === 0 ? "cursor-not-allowed" : "cursor-text"
+          }`}
+          disabled={products.length === 0} // Disable if no products
         />
-
-        <Select
-          styles={selectStyles}
-          options={categoryOptions}
-          placeholder="Filter by category"
-          isClearable
-          value={categoryOptions.find((opt) => opt.value === categoryFilter)}
-          onChange={(selected) =>
-            setCategoryFilter(selected ? selected.value : "")
+        <div
+          className={
+            products.length === 0 ? "cursor-not-allowed" : "cursor-pointer"
           }
-        />
-
-        <Select
-          styles={selectStyles}
-          options={sortOptions}
-          placeholder="Sort products"
-          isSearchable={false}
-          value={sortOptions.find((opt) => opt.value === sort)}
-          onChange={(selected) => setSort(selected?.value || "")}
-        />
+        >
+          <Select
+            styles={selectStyles}
+            options={categoryOptions}
+            placeholder="Filter by category"
+            isClearable
+            value={categoryOptions.find((opt) => opt.value === categoryFilter)}
+            onChange={(selected) =>
+              setCategoryFilter(selected ? selected.value : "")
+            }
+            isDisabled={products.length === 0} // Disable if no products
+          />
+        </div>
+        <div
+          className={
+            products.length === 0 ? "cursor-not-allowed" : "cursor-pointer"
+          }
+        >
+          <Select
+            styles={selectStyles}
+            options={sortOptions}
+            placeholder="Sort products"
+            isSearchable={false}
+            value={sortOptions.find((opt) => opt.value === sort)}
+            onChange={(selected) => setSort(selected?.value || "")}
+            isDisabled={products.length === 0} // Disable if no products
+          />
+        </div>
       </div>
-
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">📦 Products</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow"
+          className={`bg-green-600 text-white px-6 py-3 rounded-xl shadow 
+      transform transition-all duration-150
+      hover:-translate-y-1 hover:shadow-lg
+      active:translate-y-0 active:shadow-md
+      disabled:opacity-50 disabled:cursor-not-allowed
+    `}
         >
           + Add Product
         </button>
       </div>
-
-      {/* TABLE */}
-      <ProductTable
-        products={filteredProducts}
-        toggleStatus={toggleStatus}
-        setEditProduct={setEditProduct}
-        dispatch={dispatch}
-        loading={loading}
-        page={page}
-        totalPages={totalPages}
-        setPage={setPage}
-      />
-
+      {/* TABLE OR EMPTY STATE */}
+      {filteredProducts.length > 0 ? (
+        <ProductTable
+          products={filteredProducts}
+          toggleStatus={toggleStatus}
+          setEditProduct={setEditProduct}
+          onDelete={openDeleteModal}
+          dispatch={dispatch}
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          setPage={setPage}
+        />
+      ) : (
+        <div className="text-center py-16">
+          <p className="text-2xl font-semibold text-gray-600 mb-2">
+            😕 No products found
+          </p>
+          <p className="text-gray-400">Try adjusting your search or filters.</p>
+        </div>
+      )}
       {/* PAGINATION */}
-      <div className="flex justify-center gap-2 mt-6">
-        <button
-          disabled={page === 1}
-          onClick={() => setPage((p) => p - 1)}
-          className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-40"
-        >
-          Prev
-        </button>
+      {total > 0 && (
+        <div className="flex justify-center gap-2 mt-6">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-40"
+          >
+            Prev
+          </button>
 
-        <span className="px-4 py-2 bg-white rounded shadow">
-          Page {page} of {totalPages}
-        </span>
+          <span className="px-4 py-2 bg-white rounded shadow">
+            Page {page} of {totalPages}
+          </span>
 
-        <button
-          disabled={page === totalPages}
-          onClick={() => setPage((p) => p + 1)}
-          className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
-
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      )}
+      {/* CREATE MODAL */}
       <AnimatePresence>
         {showCreate && (
           <>
@@ -296,6 +363,35 @@ export default function ProductPage() {
                   }
                 />
 
+                {/* Price */}
+                <input
+                  type="number"
+                  className={input}
+                  placeholder="Price"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                />
+
+                {/* Discount Price */}
+                <input
+                  type="number"
+                  className={input}
+                  placeholder="Discount Price (optional)"
+                  value={form.discountPrice}
+                  onChange={(e) =>
+                    setForm({ ...form, discountPrice: e.target.value })
+                  }
+                />
+
+                {/* Stock */}
+                <input
+                  type="number"
+                  className={input}
+                  placeholder="Stock"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                />
+
                 {/* Category */}
                 <Select
                   placeholder="Category"
@@ -304,7 +400,11 @@ export default function ProductPage() {
                     value: c._id,
                     label: c.name,
                   }))}
-                  value={categories.find((c) => c._id === form.category)}
+                  value={
+                    categories
+                      .map((c) => ({ value: c._id, label: c.name }))
+                      .find((o) => o.value === form.category) || null
+                  }
                   onChange={(selected) => {
                     const categoryId = selected?.value || "";
                     setForm({ ...form, category: categoryId, subCategory: "" });
@@ -313,28 +413,54 @@ export default function ProductPage() {
                   }}
                 />
 
-                {/* SubCategory */}
-                <Select
-                  placeholder="SubCategory"
-                  styles={selectStyles}
-                  options={subCategories.map((s) => ({
-                    value: s._id,
-                    label: s.name,
-                  }))}
-                  value={subCategories.find((s) => s._id === form.subCategory)}
-                  onChange={(selected) =>
-                    setForm({ ...form, subCategory: selected?.value })
+                <div
+                  className={
+                    products.length === 0
+                      ? "cursor-not-allowed"
+                      : "cursor-pointer"
                   }
-                />
-
+                >
+                  {/* SubCategory */}
+                  <Select
+                    placeholder="SubCategory"
+                    styles={selectStyles}
+                    options={subCategories.map((s) => ({
+                      value: s._id,
+                      label: s.name,
+                    }))}
+                    value={
+                      subCategories
+                        .map((s) => ({ value: s._id, label: s.name }))
+                        .find((o) => o.value === form.subCategory) || null
+                    }
+                    onChange={(selected) => {
+                      const subCategoryId = selected?.value || "";
+                      setForm({ ...form, subCategory: subCategoryId });
+                    }}
+                    isDisabled={!form.category}
+                  />
+                </div>
                 {/* Images */}
-                <input
-                  type="file"
-                  multiple
-                  onChange={(e) =>
-                    setForm({ ...form, images: [...e.target.files] })
-                  }
-                />
+                <div className="space-y-1">
+                  <label className="flex items-center gap-4 px-4 py-3 border-2 border-green-500 rounded-xl cursor-pointer hover:bg-green-50">
+                    <span className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
+                      Choose files
+                    </span>
+                    <span className="text-sm text-gray-500 truncate">
+                      {form.images.length > 0
+                        ? `${form.images.length} file(s) selected`
+                        : "No file chosen"}
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) =>
+                        setForm({ ...form, images: Array.from(e.target.files) })
+                      }
+                    />
+                  </label>
+                </div>
 
                 {/* Submit */}
                 <button
@@ -349,15 +475,17 @@ export default function ProductPage() {
           </>
         )}
       </AnimatePresence>
-
       {/* EDIT MODAL */}
       <AnimatePresence>
         {editProduct && (
           <>
+            {/* BACKDROP */}
             <motion.div
               className="fixed inset-0 bg-black/40 z-40"
               onClick={() => setEditProduct(null)}
             />
+
+            {/* PANEL */}
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -409,6 +537,14 @@ export default function ProductPage() {
           </>
         )}
       </AnimatePresence>
+      <DeleteConfirmModal
+        isOpen={!!deleteId}
+        title="Delete Product"
+        message="This action cannot be undone. Are you sure?"
+        onCancel={closeDeleteModal}
+        onConfirm={confirmDelete}
+        loading={deleteLoading}
+      />
     </div>
   );
 }

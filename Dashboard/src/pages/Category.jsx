@@ -7,6 +7,7 @@ import {
   deleteCategory,
 } from "../app/features/categorySlice";
 import DeleteConfirmModal from "../components/DeleteConfirmModel";
+import CategoryRow from "../components/CategoryRow";
 
 export default function Category() {
   const dispatch = useDispatch();
@@ -162,7 +163,7 @@ export default function Category() {
       />
 
       {/* List */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence>
           {categories.map((c) => (
             <motion.div
@@ -187,42 +188,32 @@ export default function Category() {
             </motion.div>
           ))}
         </AnimatePresence>
-      </div>
-
-      {/* Pagination
-      <div className="mt-10 flex justify-center items-center gap-4">
-        <motion.button
-          whileHover={page > 1 ? uplift : undefined}
-          whileTap={page > 1 ? press : undefined}
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-          className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full
-             shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Prev
-        </motion.button>
-
-        <motion.span
-          key={page}
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="px-6 py-2 rounded-full bg-green-600 text-white font-semibold shadow-lg"
-        >
-          {page}
-        </motion.span>
-
-        <motion.button
-          whileHover={!isLastPage ? uplift : undefined}
-          whileTap={!isLastPage ? press : undefined}
-          disabled={isLastPage}
-          onClick={() => setPage((p) => p + 1)}
-          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full
-             shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Next
-        </motion.button>
       </div> */}
+
+      {/* Category + SubCategory Table */}
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-green-100 text-left">
+            <tr>
+              <th className="p-4">Category</th>
+              <th className="p-4">SubCategories</th>
+              <th className="p-4 text-center">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <AnimatePresence>
+              {categories.map((cat) => (
+                <CategoryRow
+                  key={cat._id}
+                  category={cat}
+                  onDelete={handleDeleteClick}
+                />
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
 
       {/* Pagination */}
       <div className="mt-10 flex justify-center items-center gap-3 flex-wrap">

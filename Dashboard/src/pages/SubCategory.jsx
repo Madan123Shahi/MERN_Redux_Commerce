@@ -14,7 +14,7 @@ const selectStyles = {
   /* Main select box */
   control: (provided, state) => ({
     ...provided,
-    minHeight: "3rem",
+    height: "3.5rem",
     borderRadius: "1rem",
     border: "2px solid #22c55e",
     backgroundColor: "white",

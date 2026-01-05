@@ -16,7 +16,9 @@ const App = () => {
 
   // Check if admin is already logged in
   useEffect(() => {
-    if (!authChecked) dispatch(refreshAccessToken());
+    if (!authChecked) {
+      dispatch(refreshAccessToken());
+    }
   }, [dispatch, authChecked]);
 
   // Show loader until auth check completes
@@ -32,33 +34,39 @@ const App = () => {
   }
 
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route
-        path="/login"
-        element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
-        }
-      />
+    <>
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginPage />
+            )
+          }
+        />
 
-      {/* Protected Admin Routes */}
-      <Route element={<AdminRoute />}>
-        <Route path="/Dashboard" element={<DashboardLayout />}>
-          <Route path="categories" element={<Category />} />
-          <Route path="subcategories" element={<SubCategory />} />
-          <Route path="products" element={<ProductPage />} />
-          <Route index element={<Navigate to="categories" replace />} />
+        {/* Protected Admin Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/Dashboard" element={<DashboardLayout />}>
+            <Route path="categories" element={<Category />} />
+            <Route path="subcategories" element={<SubCategory />} />
+            <Route path="products" element={<ProductPage />} />
+            <Route index element={<Navigate to="categories" replace />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Catch-all route */}
-      <Route
-        path="*"
-        element={
-          <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
-        }
-      />
-    </Routes>
+        {/* Catch-all route */}
+        <Route
+          path="*"
+          element={
+            <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+          }
+        />
+      </Routes>
+    </>
   );
 };
 

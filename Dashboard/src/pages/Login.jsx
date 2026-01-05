@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import { loginAdmin, resetAuthState } from "../app/features/authSlice";
 import { loginAdminSchema } from "../validators/Admin.js";
+import { toast, Toaster } from "react-hot-toast";
 
 export const LoginPage = () => {
   const dispatch = useDispatch();
@@ -50,22 +51,41 @@ export const LoginPage = () => {
       setFieldErrors((prev) => ({ ...prev, [name]: err.message }));
     }
   };
-
   const handleLogin = async (e) => {
     e.preventDefault();
 
     try {
+      // Validate form using Yup
       await loginAdminSchema.validate(form, { abortEarly: false });
       setFieldErrors({});
       setRouteError(null);
+
+      // Reset auth state before login
       dispatch(resetAuthState());
-      dispatch(loginAdmin(form));
+
+      // Dispatch loginAdmin thunk and unwrap the promise to catch errors
+      await dispatch(loginAdmin(form))
+        .unwrap()
+        .then(() => {
+          // Optional: show success toast
+          toast.success("Logged in successfully!");
+        })
+        .catch((err) => {
+          // Handle network error or backend error
+          const msg = !err.response
+            ? "Cannot connect to server. Please try later." // backend offline
+            : err.response?.data?.message || err.message || "Login failed";
+          toast.error(msg);
+        });
     } catch (err) {
-      const errors = {};
-      err.inner.forEach((e) => {
-        errors[e.path] = e.message;
-      });
-      setFieldErrors(errors);
+      // Yup validation errors
+      if (err.inner) {
+        const errors = {};
+        err.inner.forEach((e) => {
+          errors[e.path] = e.message;
+        });
+        setFieldErrors(errors);
+      }
     }
   };
 

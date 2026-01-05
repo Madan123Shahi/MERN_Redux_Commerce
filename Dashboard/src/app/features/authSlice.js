@@ -20,6 +20,11 @@ export const loginAdmin = createAsyncThunk(
       const { data } = await api.post("/auth/loginAdmin", form);
       return data; // { accessToken, admin }
     } catch (err) {
+      // This is only during login
+      if (!err.response) {
+        // Backend is offline
+        return rejectWithValue("Cannot connect to server. Please try later.");
+      }
       return rejectWithValue(err.response?.data?.message || err.message);
     }
   }

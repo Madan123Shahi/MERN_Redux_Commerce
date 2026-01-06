@@ -1,12 +1,26 @@
-import { Outlet, Navigate } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-const AdminRoute = () => {
-  const { isAuthenticated, authChecked } = useSelector((state) => state.auth);
+export default function ProtectedRoute() {
+  const location = useLocation();
 
-  if (!authChecked) return null; // or spinner
+  const {
+    user, // admin object
+    accessToken,
+    isAuthenticated,
+    authChecked,
+  } = useSelector((state) => state.auth);
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
-};
+  // ⏳ Wait until auth is checked (refresh / me call)
+  if (!authChecked) {
+    return null; // or loading spinner
+  }
 
-export default AdminRoute;
+  // 🔐 Not authenticated → redirect to login
+  if (!isAuthenticated || !accessToken || !user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // ✅ Authenticated → allow access
+  return <Outlet />;
+}

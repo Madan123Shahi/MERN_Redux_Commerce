@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import { loginAdmin, resetAuthState } from "../app/features/authSlice";
+import { loginAdmin } from "../app/features/authSlice";
 import { loginAdminSchema } from "../validators/Admin.js";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 export const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { loading, error, success } = useSelector((state) => state.auth);
+  const { loading } = useSelector((state) => state.auth);
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState({});
@@ -19,25 +19,12 @@ export const LoginPage = () => {
     () => location.state?.error || null
   );
 
-  // Clear auth errors on mount
-  useEffect(() => {
-    dispatch(resetAuthState());
-  }, [dispatch]);
-
   // Clear route state after first render
   useEffect(() => {
     if (location.state?.error) {
       navigate(location.pathname, { replace: true });
     }
   }, [location.pathname, location.state, navigate]);
-
-  // Redirect on successful login
-  useEffect(() => {
-    if (success) {
-      navigate("/dashboard/products");
-      dispatch(resetAuthState());
-    }
-  }, [success, dispatch, navigate]);
 
   const handleChange = async (e) => {
     const { name, value } = e.target;
@@ -55,37 +42,25 @@ export const LoginPage = () => {
     e.preventDefault();
 
     try {
-      // Validate form using Yup
       await loginAdminSchema.validate(form, { abortEarly: false });
       setFieldErrors({});
       setRouteError(null);
 
-      // Reset auth state before login
-      dispatch(resetAuthState());
+      await dispatch(loginAdmin(form)).unwrap();
 
-      // Dispatch loginAdmin thunk and unwrap the promise to catch errors
-      await dispatch(loginAdmin(form))
-        .unwrap()
-        .then(() => {
-          // Optional: show success toast
-          toast.success("Logged in successfully!");
-        })
-        .catch((err) => {
-          // Handle network error or backend error
-          const msg = !err.response
-            ? "Cannot connect to server. Please try later." // backend offline
-            : err.response?.data?.message || err.message || "Login failed";
-          toast.error(msg);
-        });
+      toast.success("Logged in successfully!");
+      navigate("/dashboard");
     } catch (err) {
-      // Yup validation errors
       if (err.inner) {
         const errors = {};
         err.inner.forEach((e) => {
           errors[e.path] = e.message;
         });
         setFieldErrors(errors);
+        return;
       }
+
+      toast.error(err || "Login failed");
     }
   };
 
@@ -111,11 +86,11 @@ export const LoginPage = () => {
             {routeError}
           </p>
         )}
-        {error && (
+        {/* {error && (
           <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4 text-base">
             {error}
           </p>
-        )}
+        )} */}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -126,7 +101,7 @@ export const LoginPage = () => {
               value={form.email}
               disabled={loading}
               onChange={handleChange}
-              className={`w-full border p-3 rounded-md focus:outline-none ${
+              className={`w-full border-2 border-green-300 p-3 rounded-md focus:outline-none ${
                 fieldErrors.email
                   ? "border-red-400 focus:ring-2 focus:ring-red-400"
                   : "border-gray-300 focus:ring-2 focus:ring-green-400"
@@ -145,7 +120,7 @@ export const LoginPage = () => {
               value={form.password}
               disabled={loading}
               onChange={handleChange}
-              className={`w-full border p-3 rounded-md focus:outline-none ${
+              className={`w-full border-2 border-green-300 p-3 rounded-md focus:outline-none ${
                 fieldErrors.password
                   ? "border-red-400 focus:ring-2 focus:ring-red-400"
                   : "border-gray-300 focus:ring-2 focus:ring-green-400"
@@ -170,17 +145,6 @@ export const LoginPage = () => {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-
-        <p className="text-center text-sm mt-6 text-gray-600">
-          Don’t have an account?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/register")}
-            className="text-green-600 font-medium hover:underline"
-          >
-            Create Account
-          </button>
-        </p>
       </div>
     </div>
   );

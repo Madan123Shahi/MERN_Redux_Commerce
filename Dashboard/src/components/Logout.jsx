@@ -3,8 +3,9 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { logoutAdmin, clearAuth } from "../app/features/authSlice";
-import LogoutConfirmModal from "../components/LogoutConfirmModel";
+import LogoutConfirmModal from "./LogoutConfirmModel";
 import api from "../api/axios";
+import { toast } from "react-hot-toast";
 
 const LogoutButton = () => {
   const dispatch = useDispatch();
@@ -21,9 +22,10 @@ const LogoutButton = () => {
       // clear redux auth
       dispatch(clearAuth());
 
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
+      toast.success("Logout Successfully");
     } catch (err) {
-      console.error("Logout failed:", err);
+      toast.error("Logout failed:", err);
     }
   };
 

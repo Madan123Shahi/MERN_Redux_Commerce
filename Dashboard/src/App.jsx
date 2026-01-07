@@ -1,9 +1,10 @@
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./routes/ProtectedRoute";
-import Dashboard from "./pages/Dashboard";
 import { LoginPage } from "./pages/Login";
 import { Toaster } from "react-hot-toast";
 import HomeBanners from "./pages/HomeBanners";
+import DashboardHome from "./pages/Dashboard"; // create this
+import DashboardLayout from "./components/DashboardLayout";
 
 export default function App() {
   return (
@@ -11,16 +12,21 @@ export default function App() {
       <Toaster
         position="top-right"
         reverseOrder={false}
-        toastOptions={{
-          duration: 3000,
-        }}
+        toastOptions={{ duration: 3000 }}
       />
+
       <Routes>
+        {/* Public Route */}
         <Route path="/" element={<LoginPage />} />
 
+        {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/home-banners" element={<HomeBanners />} />
+          {/* 🔥 Dashboard Layout */}
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            {/* Right-side pages */}
+            <Route index element={<DashboardHome />} />
+            <Route path="home-banners" element={<HomeBanners />} />
+          </Route>
         </Route>
       </Routes>
     </>

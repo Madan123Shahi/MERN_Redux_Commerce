@@ -1,6 +1,6 @@
 // middleware/errorMiddleware.js
 import AppError from "../utils/appError.js";
-
+import { env } from "../config/env.js";
 /* =========================
    Helper functions
 ========================= */
@@ -34,9 +34,8 @@ const handleJWTError = () =>
 const handleJWTExpiredError = () =>
   new AppError("Your token has expired. Please log in again!", 401);
 
-/* =========================
-   Global Error Handler
-========================= */
+//  Global Error Handler
+
 export const globalErrorHandler = (err, req, res, next) => {
   // Default values
   err.statusCode ||= 500;
@@ -53,7 +52,7 @@ export const globalErrorHandler = (err, req, res, next) => {
   if (err.name === "TokenExpiredError") error = handleJWTExpiredError();
 
   // Different response for dev vs prod
-  if (process.env.NODE_ENV === "development") {
+  if (env.NODE_ENV === "development") {
     return res.status(error.statusCode).json({
       status: error.status,
       message: error.message,

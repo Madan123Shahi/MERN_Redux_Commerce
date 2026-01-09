@@ -5,16 +5,12 @@ const userSchema = new mongoose.Schema(
   {
     phone: {
       type: String,
-      unique: true,
       trim: true,
-      sparse: true,
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
-      sparse: true,
-      unique: true,
     },
     password: {
       type: String,
@@ -37,7 +33,17 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
+);
+
+userSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $exists: true } } },
+);
+
+userSchema.index(
+  { phone: 1 },
+  { unique: true, partialFilterExpression: { phone: { $exists: true } } },
 );
 
 userSchema.pre("save", async function () {

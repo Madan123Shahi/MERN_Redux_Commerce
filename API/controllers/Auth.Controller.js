@@ -52,17 +52,17 @@ export const register = catchAsync(async (req, res, next) => {
     const timeSinceLastSend = Date.now() - existingOtp.lastSentAt.getTime();
     if (timeSinceLastSend < OTP_RESEND_COOLDOWN_MS) {
       const wait = Math.ceil(
-        (OTP_RESEND_COOLDOWN_MS - timeSinceLastSend) / 1000
+        (OTP_RESEND_COOLDOWN_MS - timeSinceLastSend) / 1000,
       );
       throw new AppError(
         `Please wait ${wait}s before requesting a new OTP`,
-        429
+        429,
       );
     }
   }
 
   const existingUser = await User.findOne(
-    email ? { email: target } : { phone: target }
+    email ? { email: target } : { phone: target },
   );
   if (existingUser) throw new AppError("User already exists", 409);
 
@@ -161,7 +161,7 @@ export const login = catchAsync(async (req, res, next) => {
     const minutes = Math.ceil((user.lockUntil - Date.now()) / 60000);
     throw new AppError(
       `Account locked. Try again in ${minutes} minute(s).`,
-      423
+      423,
     );
   }
 
@@ -224,7 +224,7 @@ export const refreshAccessToken = catchAsync(async (req, res, next) => {
     if (storedToken?.revoked) {
       await RefreshToken.updateMany(
         { user: storedToken.user },
-        { revoked: true }
+        { revoked: true },
       );
     }
     res.clearCookie("refreshToken", { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
@@ -323,7 +323,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     : normalizePhone(phone, country).e164;
 
   const user = await User.findOne(
-    email ? { email: target } : { phone: target }
+    email ? { email: target } : { phone: target },
   );
   if (!user) throw new AppError("User not found", 404);
 
@@ -373,7 +373,7 @@ export const resetPassword = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findOne(
-    email ? { email: target } : { phone: target }
+    email ? { email: target } : { phone: target },
   ).select("+password");
   if (!user) throw new AppError("User not found", 404);
 
@@ -404,16 +404,16 @@ export const loginAdmin = catchAsync(async (req, res, next) => {
   if (!email || !password) throw new AppError("All fields are required", 400);
 
   const admin = await User.findOne({ email, role: "admin" }).select(
-    "+password"
+    "+password",
   );
-  if (!admin) throw new AppError("Admin not found", 401);
+  if (!admin) throw new AppError("Email is wrong", 401);
 
   const isMatch = await admin.comparePassword(password);
   if (!isMatch) throw new AppError("Password doesn't match", 401);
 
   await RefreshToken.updateMany(
     { user: admin._id, revoked: false },
-    { revoked: true }
+    { revoked: true },
   );
 
   const accessToken = generateToken(admin._id);
@@ -451,7 +451,7 @@ export const logoutAdmin = catchAsync(async (req, res, next) => {
     const tokenHash = hashToken(refreshToken);
     await RefreshToken.updateOne(
       { tokenHash, revoked: false },
-      { revoked: true }
+      { revoked: true },
     );
   }
 

@@ -16,8 +16,9 @@ export const LoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [routeError, setRouteError] = useState(
-    () => location.state?.error || null
+    () => location.state?.error || null,
   );
+  const [showPassword, setShowPassword] = useState(false);
 
   // Clear route state after first render
   useEffect(() => {
@@ -113,19 +114,30 @@ export const LoginPage = () => {
           </div>
 
           <div>
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={form.password}
-              disabled={loading}
-              onChange={handleChange}
-              className={`w-full border-2 border-green-300 p-3 rounded-md focus:outline-none ${
-                fieldErrors.password
-                  ? "border-red-400 focus:ring-2 focus:ring-red-400"
-                  : "border-gray-300 focus:ring-2 focus:ring-green-400"
-              }`}
-            />
+            {/* <div> */}
+            <div className="relative">
+              <input
+                // type="password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="Password"
+                value={form.password}
+                disabled={loading}
+                onChange={handleChange}
+                className={`w-full border-2 border-green-300 p-3 rounded-md focus:outline-none ${
+                  fieldErrors.password
+                    ? "border-red-400 focus:ring-2 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-2 focus:ring-green-400"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hover:text-gray-700 "
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             {fieldErrors.password && (
               <p className="text-red-600 text-base mt-1">
                 {fieldErrors.password}

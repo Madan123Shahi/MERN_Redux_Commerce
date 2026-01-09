@@ -27,7 +27,7 @@ export const loginAdmin = createAsyncThunk(
       }
       return rejectWithValue(err.response?.data?.message || err.message);
     }
-  }
+  },
 );
 
 /* =========================
@@ -41,10 +41,10 @@ export const refreshAccessToken = createAsyncThunk(
       // Set token in Axios for future requests
       setAuthToken(data.accessToken);
       return data; // Return full object
-    } catch (err) {
+    } catch {
       return rejectWithValue(null);
     }
-  }
+  },
 );
 
 /* =========================
@@ -56,10 +56,10 @@ export const protectAdmin = createAsyncThunk(
     try {
       const { data } = await api.get("/auth/me");
       return data.user;
-    } catch (err) {
+    } catch {
       return rejectWithValue(null);
     }
-  }
+  },
 );
 
 /* =========================
@@ -74,7 +74,7 @@ export const logoutAdmin = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
-  }
+  },
 );
 
 const authSlice = createSlice({

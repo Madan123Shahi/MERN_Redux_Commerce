@@ -19,7 +19,7 @@ export const loginAdminSchema = yup.object({
     .matches(/[@$!%*?&]/, "Must contain at least one special character"),
 });
 
-export const registerAdminSchema = yup.object({
+export const registerSchema = yup.object({
   email: yup
     .string()
     .trim()

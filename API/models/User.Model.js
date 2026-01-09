@@ -3,6 +3,10 @@ import bcrypt from "bcrypt";
 
 const userSchema = new mongoose.Schema(
   {
+    name: {
+      type: String,
+      trim: true,
+    },
     phone: {
       type: String,
       trim: true,
@@ -21,6 +25,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    avatar: {
+      url: {
+        type: String,
+        default: "default-avatar-url.png", // Fallback image
+      },
+      publicId: {
+        type: String,
+        default: null,
+      },
+    },
     // Brute Force protection
     loginAttempts: {
       type: Number,
@@ -33,17 +47,17 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 userSchema.index(
   { email: 1 },
-  { unique: true, partialFilterExpression: { email: { $exists: true } } },
+  { unique: true, partialFilterExpression: { email: { $exists: true } } }
 );
 
 userSchema.index(
   { phone: 1 },
-  { unique: true, partialFilterExpression: { phone: { $exists: true } } },
+  { unique: true, partialFilterExpression: { phone: { $exists: true } } }
 );
 
 userSchema.pre("save", async function () {

@@ -28,7 +28,7 @@ const adminSeeder = async () => {
     const existingAdmin1 = await User.findOne({ email: admin_email_1 });
     if (!existingAdmin1) {
       await User.create({
-        name: "Admin One",
+        name: "Madan Kumar Shahi",
         email: admin_email_1,
         password: admin_password_1,
         role: "admin",
@@ -42,7 +42,7 @@ const adminSeeder = async () => {
     const existingAdmin2 = await User.findOne({ email: admin_email_2 });
     if (!existingAdmin2) {
       await User.create({
-        name: "Admin Two",
+        name: "Shivansh Shahi",
         email: admin_email_2,
         password: admin_password_2,
         role: "admin",

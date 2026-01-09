@@ -24,6 +24,7 @@ import {
   logoutAllDevices,
   getMe,
   logoutAdmin,
+  uploadAvatar,
 } from "../controllers/Auth.Controller.js";
 
 import {
@@ -34,6 +35,7 @@ import {
 
 import { protect } from "../middleware/auth.js"; // JWT auth middleware
 import { adminOnly } from "../middleware/role.middleware.js";
+import upload from "../middleware/upload.js";
 
 /* ======================================
    AUTH ROUTES
@@ -81,5 +83,6 @@ router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAllDevices);
 router.get("/me", protect, getMe);
 router.post("/logoutAdmin", logoutAdmin);
+router.put("/avatar", protect, upload.single("avatar"), uploadAvatar);
 
 export default router;

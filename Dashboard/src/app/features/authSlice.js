@@ -18,6 +18,7 @@ export const loginAdmin = createAsyncThunk(
   async (form, { rejectWithValue }) => {
     try {
       const { data } = await api.post("/auth/loginAdmin", form);
+      console.log(data);
       return data; // { accessToken, admin }
     } catch (err) {
       // This is only during login
@@ -27,7 +28,7 @@ export const loginAdmin = createAsyncThunk(
       }
       return rejectWithValue(err.response?.data?.message || err.message);
     }
-  },
+  }
 );
 
 /* =========================
@@ -44,7 +45,7 @@ export const refreshAccessToken = createAsyncThunk(
     } catch {
       return rejectWithValue(null);
     }
-  },
+  }
 );
 
 /* =========================
@@ -59,7 +60,7 @@ export const protectAdmin = createAsyncThunk(
     } catch {
       return rejectWithValue(null);
     }
-  },
+  }
 );
 
 /* =========================
@@ -74,7 +75,15 @@ export const logoutAdmin = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
-  },
+  }
+);
+
+export const uploadAvatar = createAsyncThunk(
+  "auth/uploadAvatar",
+  async (formData, thunkAPI) => {
+    const res = await api.put("/users/avatar", formData);
+    return res.data.avatar;
+  }
 );
 
 const authSlice = createSlice({
@@ -141,6 +150,9 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.authChecked = true;
         setAuthToken(null); // remove header
+      })
+      .addCase(uploadAvatar.fulfilled, (state, action) => {
+        state.user.avatar = action.payload;
       });
   },
 });

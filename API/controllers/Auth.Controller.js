@@ -12,6 +12,10 @@ import { sendSms } from "../config/sms.js";
 import { normalizePhone } from "../utils/phone.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 
 /* ======================================
    CONSTANTS
@@ -52,17 +56,17 @@ export const register = catchAsync(async (req, res, next) => {
     const timeSinceLastSend = Date.now() - existingOtp.lastSentAt.getTime();
     if (timeSinceLastSend < OTP_RESEND_COOLDOWN_MS) {
       const wait = Math.ceil(
-        (OTP_RESEND_COOLDOWN_MS - timeSinceLastSend) / 1000,
+        (OTP_RESEND_COOLDOWN_MS - timeSinceLastSend) / 1000
       );
       throw new AppError(
         `Please wait ${wait}s before requesting a new OTP`,
-        429,
+        429
       );
     }
   }
 
   const existingUser = await User.findOne(
-    email ? { email: target } : { phone: target },
+    email ? { email: target } : { phone: target }
   );
   if (existingUser) throw new AppError("User already exists", 409);
 
@@ -161,7 +165,7 @@ export const login = catchAsync(async (req, res, next) => {
     const minutes = Math.ceil((user.lockUntil - Date.now()) / 60000);
     throw new AppError(
       `Account locked. Try again in ${minutes} minute(s).`,
-      423,
+      423
     );
   }
 
@@ -224,7 +228,7 @@ export const refreshAccessToken = catchAsync(async (req, res, next) => {
     if (storedToken?.revoked) {
       await RefreshToken.updateMany(
         { user: storedToken.user },
-        { revoked: true },
+        { revoked: true }
       );
     }
     res.clearCookie("refreshToken", { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
@@ -258,7 +262,7 @@ export const refreshAccessToken = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     accessToken: newAccessToken,
-    user: { id: user._id, email: user.email, role: user.role },
+    user: { id: user._id, email: user.email, role: user.role, name: user.name },
   });
 });
 
@@ -323,7 +327,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     : normalizePhone(phone, country).e164;
 
   const user = await User.findOne(
-    email ? { email: target } : { phone: target },
+    email ? { email: target } : { phone: target }
   );
   if (!user) throw new AppError("User not found", 404);
 
@@ -373,7 +377,7 @@ export const resetPassword = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findOne(
-    email ? { email: target } : { phone: target },
+    email ? { email: target } : { phone: target }
   ).select("+password");
   if (!user) throw new AppError("User not found", 404);
 
@@ -404,7 +408,7 @@ export const loginAdmin = catchAsync(async (req, res, next) => {
   if (!email || !password) throw new AppError("All fields are required", 400);
 
   const admin = await User.findOne({ email, role: "admin" }).select(
-    "+password",
+    "+password"
   );
   if (!admin) throw new AppError("Email is wrong", 401);
 
@@ -413,7 +417,7 @@ export const loginAdmin = catchAsync(async (req, res, next) => {
 
   await RefreshToken.updateMany(
     { user: admin._id, revoked: false },
-    { revoked: true },
+    { revoked: true }
   );
 
   const accessToken = generateToken(admin._id);
@@ -451,10 +455,36 @@ export const logoutAdmin = catchAsync(async (req, res, next) => {
     const tokenHash = hashToken(refreshToken);
     await RefreshToken.updateOne(
       { tokenHash, revoked: false },
-      { revoked: true },
+      { revoked: true }
     );
   }
 
   res.clearCookie("refreshToken", { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
   res.status(200).json({ message: "Logged out successfully" });
+});
+
+export const uploadAvatar = catchAsync(async (req, res, next) => {
+  if (!req.file) return next(new AppError("No image uploaded", 400));
+
+  const user = await User.findById(req.user.id);
+
+  // 1. Generic Delete: Clean up the old image if it exists
+  if (user.avatar?.publicId) {
+    await deleteFromCloudinary(user.avatar.publicId);
+  }
+
+  // 2. Generic Upload: Upload the new image
+  const result = await uploadToCloudinary(req.file.buffer, "avatars");
+
+  // 3. Update Database
+  user.avatar = {
+    url: result.secure_url,
+    publicId: result.public_id,
+  };
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    data: { avatar: user.avatar.url },
+  });
 });

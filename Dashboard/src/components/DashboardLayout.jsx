@@ -1,18 +1,17 @@
 import { Outlet } from "react-router-dom";
+import { useState } from "react";
 import Sidebar from "../components/Sidebar";
-import LogoutButton from "../components/Logout";
-
+import Topbar from "../components/TopBar";
 export default function Dashboard() {
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="min-h-screen flex bg-linear-to-br from-green-50 to-green-100">
-      <Sidebar />
-
-      <main className="flex-1 p-6 relative">
-        <div className="absolute top-2 right-6">
-          <LogoutButton />
+      <Sidebar collapsed={collapsed} />
+      <main className="flex-1 relative">
+        <Topbar collapsed={collapsed} setCollapsed={setCollapsed} />
+        <div className="p-6">
+          <Outlet />
         </div>
-
-        <Outlet />
       </main>
     </div>
   );

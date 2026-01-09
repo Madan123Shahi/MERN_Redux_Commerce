@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import HomeBanners from "./pages/HomeBanners";
 import DashboardHome from "./pages/Dashboard"; // create this
 import DashboardLayout from "./components/DashboardLayout";
+import ProductPage from "./pages/Product";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             {/* Right-side pages */}
             <Route index element={<DashboardHome />} />
             <Route path="home-banners" element={<HomeBanners />} />
+            <Route path="products" element={<ProductPage />} />
           </Route>
         </Route>
       </Routes>
